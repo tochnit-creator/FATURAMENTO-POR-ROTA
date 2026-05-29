@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Faturamento por Rota — Painel por Período</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,400&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0b0d; --bg2:#111317; --panel:#14161b; --panel2:#191c22;
+  --line:rgba(201,162,75,.16); --line-soft:rgba(255,255,255,.06);
+  --gold:#d8b768; --gold-2:#f0d693; --gold-deep:#a8853f;
+  --ink:#f4efe6; --muted:#9a958b; --muted-2:#6f6b63;
+  --grad:linear-gradient(135deg,#f0d693,#c9a24b 55%,#a8853f);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:'Manrope',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(900px 500px at 85% -8%,rgba(216,183,104,.10),transparent 60%),
+    radial-gradient(700px 600px at 5% 0%,rgba(216,183,104,.05),transparent 55%);
+  min-height:100vh;
+}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+.wrap{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:48px 28px 80px}
+.num{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+
+.head{padding-bottom:26px;border-bottom:1px solid var(--line)}
+.eyebrow{font-size:11px;letter-spacing:.34em;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:14px}
+h1{font-family:'Fraunces',serif;font-weight:400;font-size:clamp(34px,5vw,54px);line-height:1.02;letter-spacing:-.01em}
+h1 em{font-style:italic;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);font-size:14px;margin-top:12px;max-width:54ch}
+
+/* Filter panel */
+.filter{display:flex;align-items:flex-end;gap:22px;flex-wrap:wrap;margin:28px 0 6px;background:linear-gradient(160deg,var(--panel),var(--bg2));border:1px solid var(--line-soft);border-radius:16px;padding:22px 24px}
+.fgrp{display:flex;flex-direction:column;gap:8px}
+.fgrp label{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-2);font-weight:600}
+.selwrap{position:relative}
+select{appearance:none;background:var(--bg2);border:1px solid var(--line);color:var(--ink);font-family:'JetBrains Mono';font-size:14px;padding:11px 38px 11px 14px;border-radius:10px;cursor:pointer;outline:none;min-width:150px}
+select:hover{border-color:var(--gold-deep)}
+.selwrap::after{content:"▾";position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--gold);pointer-events:none;font-size:12px}
+.presets{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.presets button{background:var(--bg2);border:1px solid var(--line-soft);color:var(--muted);font-family:'Manrope';font-size:12px;font-weight:600;padding:9px 15px;border-radius:999px;cursor:pointer;transition:.2s}
+.presets button:hover{color:var(--ink);border-color:var(--line)}
+.presets button.on{background:var(--grad);color:#1a1408;border-color:transparent}
+.range-tag{font-size:12px;color:var(--gold);font-weight:600;align-self:center;white-space:nowrap}
+
+/* Results strip */
+.results{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:22px 0 8px;border:1px solid var(--line-soft);border-radius:16px;overflow:hidden;background:linear-gradient(160deg,var(--panel),var(--bg2))}
+.res{padding:24px 24px;border-right:1px solid var(--line-soft);position:relative}
+.res:last-child{border-right:none}
+.res .r-lab{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px}
+.res .dot{width:6px;height:6px;border-radius:50%;background:var(--gold)}
+.res .r-val{font-family:'Fraunces',serif;font-size:clamp(26px,3vw,34px);margin-top:14px;letter-spacing:-.01em;transition:opacity .25s}
+.res .r-val .cur{font-size:15px;color:var(--gold);margin-right:5px;font-family:'Manrope';font-weight:600}
+.res .r-note{font-size:11.5px;color:var(--muted-2);margin-top:9px}
+.res .r-note b{color:var(--gold);font-weight:600}
+.res.flash .r-val{animation:flash .5s}
+@keyframes flash{0%{opacity:.25;transform:translateY(4px)}100%{opacity:1;transform:none}}
+
+/* Chart */
+.bar{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin:40px 0 16px}
+.bar h2{font-family:'Fraunces',serif;font-weight:400;font-size:23px}
+.bar h2 span{color:var(--muted);font-size:14px;font-family:'Manrope';margin-left:8px}
+.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.toggle{display:flex;background:var(--panel);border:1px solid var(--line-soft);border-radius:999px;padding:4px}
+.toggle button{background:none;border:none;color:var(--muted);font-family:'Manrope';font-size:13px;font-weight:600;padding:8px 18px;border-radius:999px;cursor:pointer;transition:.25s}
+.toggle button.on{background:var(--grad);color:#1a1408}
+.search{position:relative}
+.search input{background:var(--panel);border:1px solid var(--line-soft);border-radius:999px;color:var(--ink);font-family:'Manrope';font-size:13px;padding:10px 16px 10px 38px;width:220px;outline:none}
+.search input:focus{border-color:var(--line)}
+.search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);opacity:.5}
+
+.panel{background:linear-gradient(170deg,var(--panel),var(--bg2));border:1px solid var(--line-soft);border-radius:18px;padding:26px 24px}
+.chart{display:flex;align-items:flex-end;gap:clamp(3px,1vw,12px);height:220px;padding-top:10px}
+.col{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end;cursor:pointer}
+.col .bar-track{width:100%;display:flex;align-items:flex-end;justify-content:center;height:100%}
+.col .barfill{width:74%;max-width:32px;background:linear-gradient(180deg,var(--gold-2),var(--gold-deep));border-radius:5px 5px 2px 2px;position:relative;transition:height .8s cubic-bezier(.2,.8,.2,1),opacity .25s,filter .2s;min-height:2px}
+.col.off .barfill{opacity:.22;filter:grayscale(.6)}
+.col:hover .barfill{filter:brightness(1.15)}
+.col .barfill .tip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(4px);background:#000;border:1px solid var(--line);color:var(--gold-2);font-family:'JetBrains Mono';font-size:11px;padding:5px 9px;border-radius:7px;white-space:nowrap;opacity:0;pointer-events:none;transition:.2s;z-index:5;text-align:center}
+.col:hover .barfill .tip{opacity:1;transform:translateX(-50%) translateY(0)}
+.col .mlab{font-size:10px;color:var(--muted-2);font-family:'JetBrains Mono';white-space:nowrap}
+.col.off .mlab{opacity:.4}
+.col .mlab b{display:block;color:var(--muted);font-size:9px;font-weight:400}
+.hint{font-size:11px;color:var(--muted-2);margin-top:14px;text-align:center}
+
+/* Table */
+.tbl{width:100%;border-collapse:collapse}
+.tbl thead th{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-2);font-weight:600;text-align:right;padding:0 14px 14px;cursor:pointer;user-select:none;white-space:nowrap}
+.tbl thead th:first-child,.tbl thead th:nth-child(2){text-align:left}
+.tbl thead th.act{color:var(--gold)}
+.tbl thead th .ar{opacity:.5;font-size:9px}
+.tbl tbody tr.main{border-top:1px solid var(--line-soft);transition:background .15s;cursor:pointer}
+.tbl tbody tr.main:hover{background:rgba(216,183,104,.04)}
+.tbl td{padding:13px 14px;text-align:right;vertical-align:middle}
+.tbl td:first-child,.tbl td:nth-child(2){text-align:left}
+.rank{color:var(--muted-2);font-family:'JetBrains Mono';font-size:12px}
+.rname{font-weight:600;font-size:14px}
+.rname .sp{color:var(--muted-2);font-weight:400;font-size:11px;margin-left:6px;letter-spacing:.05em}
+.v-money{font-family:'JetBrains Mono';font-size:13px}
+.v-strong{color:var(--gold-2);font-weight:600}
+.v-mut{color:var(--muted)}
+.detail td{padding:0;background:var(--panel2)}
+.detail-inner{max-height:0;overflow:hidden;transition:max-height .4s ease}
+tr.open + .detail .detail-inner{max-height:340px}
+.dgrid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;padding:18px 16px 22px}
+.dcell{background:var(--bg2);border-radius:7px;padding:9px 11px}
+.dcell.out{opacity:.32}
+.dcell .dm{font-size:9.5px;color:var(--muted-2);text-transform:uppercase;letter-spacing:.06em}
+.dcell .dv{font-family:'JetBrains Mono';font-size:12px;margin-top:4px;color:var(--gold-2)}
+.dcell .dp{font-family:'JetBrains Mono';font-size:10.5px;margin-top:2px;color:var(--muted)}
+.empty{padding:40px;text-align:center;color:var(--muted-2)}
+
+.foot{margin-top:42px;padding-top:22px;border-top:1px solid var(--line);font-size:12px;color:var(--muted-2);line-height:1.7}
+.foot b{color:var(--muted)}
+
+@media(max-width:980px){.results{grid-template-columns:repeat(2,1fr)}.res:nth-child(2){border-right:none}.res:nth-child(1),.res:nth-child(2){border-bottom:1px solid var(--line-soft)}}
+@media(max-width:820px){.opt-col{display:none}.dgrid{grid-template-columns:repeat(4,1fr)}.search input{width:150px}.presets{margin-left:0}}
+@media(max-width:520px){.results{grid-template-columns:1fr}.res{border-right:none;border-bottom:1px solid var(--line-soft)}}
+.fade{opacity:0;transform:translateY(14px);animation:rise .7s forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head fade">
+    <div class="eyebrow">Painel por Período · Logística SP</div>
+    <h1>Faturamento <em>por Rota</em></h1>
+    <p class="sub">Escolha um período e veja o faturamento, a média de faturamento, os pedidos e a média de pedidos dentro do intervalo selecionado.</p>
+  </header>
+
+  <div class="filter fade" style="animation-delay:.05s">
+    <div class="fgrp">
+      <label>De</label>
+      <div class="selwrap"><select id="selFrom"></select></div>
+    </div>
+    <div class="fgrp">
+      <label>Até</label>
+      <div class="selwrap"><select id="selTo"></select></div>
+    </div>
+    <span class="range-tag" id="rangeTag">—</span>
+    <div class="presets" id="presets">
+      <button data-p="all">Todo período</button>
+      <button data-p="2025">2025</button>
+      <button data-p="2026">2026</button>
+      <button data-p="l3">Últimos 3m</button>
+      <button data-p="l6">Últimos 6m</button>
+      <button data-p="l12">Últimos 12m</button>
+    </div>
+  </div>
+
+  <section class="results fade" style="animation-delay:.12s" id="results">
+    <div class="res">
+      <div class="r-lab"><span class="dot"></span>Faturamento</div>
+      <div class="r-val"><span class="cur">R$</span><span id="rFat" class="num">—</span></div>
+      <div class="r-note">no período selecionado</div>
+    </div>
+    <div class="res">
+      <div class="r-lab"><span class="dot"></span>Média Faturamento / Mês</div>
+      <div class="r-val"><span class="cur">R$</span><span id="rFatAvg" class="num">—</span></div>
+      <div class="r-note">média de <b id="rMonths">—</b> meses</div>
+    </div>
+    <div class="res">
+      <div class="r-lab"><span class="dot"></span>Pedidos</div>
+      <div class="r-val"><span id="rPed" class="num">—</span></div>
+      <div class="r-note">no período selecionado</div>
+    </div>
+    <div class="res">
+      <div class="r-lab"><span class="dot"></span>Média Pedidos / Mês</div>
+      <div class="r-val"><span id="rPedAvg" class="num">—</span></div>
+      <div class="r-note">média de <b id="rMonths2">—</b> meses</div>
+    </div>
+  </section>
+
+  <div class="bar fade" style="animation-delay:.2s">
+    <h2 id="chartTitle">Faturamento por mês <span>· clique nas barras p/ definir período</span></h2>
+  </div>
+  <div class="panel fade" style="animation-delay:.24s">
+    <div class="chart" id="chart"></div>
+    <div class="hint">Os meses em destaque compõem o período. Clique numa barra para começar a seleção e em outra para fechar o intervalo.</div>
+  </div>
+
+  <div class="bar fade" style="animation-delay:.3s">
+    <h2 id="tblTitle">Por região no período</h2>
+    <div class="tools">
+      <div class="toggle" id="toggle">
+        <button class="on" data-m="fat">Faturamento</button>
+        <button data-m="ped">Pedidos</button>
+      </div>
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d8b768" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="search" placeholder="Buscar região…" autocomplete="off">
+      </div>
+    </div>
+  </div>
+  <div class="panel fade" style="animation-delay:.34s">
+    <table class="tbl"><thead><tr id="thead"></tr></thead><tbody id="tbody"></tbody></table>
+  </div>
+
+  <div class="foot fade" style="animation-delay:.4s">
+    <div>Fonte: planilha <b>Faturamento por rota</b> (abas <b>Dados</b> + <b>IIMPORT</b>) · <b>192 regiões</b> · período da base: jan/2025 – abr/2026.</div>
+    <div>As médias são calculadas como <b>total ÷ nº de meses do período selecionado</b>. Variações de grafia da mesma cidade são consolidadas numa única região.</div>
+  </div>
+</div>
+
+<script>
+const DATA = {"months": ["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04"], "rows": [{"rota": "APIAI", "fat": [0.0, 0.0, 0.0, 0.0, 2539.5, 21470.13, 11392.47, 7774.28, 13476.03, 20163.76, 8721.94, 10971.37, 18688.88, 13420.39, 6307.92, 21234.94], "ped": [0, 0, 0, 0, 2, 7, 7, 6, 5, 10, 6, 8, 7, 8, 5, 4]}, {"rota": "Alambari", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 505.26, 3898.69, 987.6, 1460.71, 0.0, 6937.97, 0.0, 4945.37], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 0, 1, 0, 1]}, {"rota": "AGUDOS", "fat": [7339.87, 6382.35, 7091.46, 4083.46, 6233.15, 5031.66, 8013.37, 13969.33, 8894.84, 8765.66, 6897.75, 9083.14, 12971.97, 13960.23, 10407.35, 11267.87], "ped": [8, 7, 9, 5, 6, 7, 8, 12, 7, 9, 7, 5, 6, 8, 7, 6]}, {"rota": "Alumínio", "fat": [13637.71, 3260.4, 2216.85, 7261.43, 5216.5, 4355.7, 3809.36, 4056.09, 6944.34, 6933.95, 4108.38, 1932.64, 4422.73, 5814.24, 6322.53, 16230.45], "ped": [5, 2, 2, 2, 4, 3, 3, 3, 4, 6, 4, 2, 3, 5, 5, 7]}, {"rota": "AMERICANA", "fat": [2962.6, 4551.44, 2802.97, 4634.62, 1294.08, 4410.47, 4706.05, 9862.21, 13550.43, 27280.53, 21036.03, 9475.92, 18446.97, 11358.51, 17895.53, 9087.03], "ped": [3, 3, 3, 3, 1, 3, 6, 7, 16, 24, 19, 10, 19, 13, 17, 9]}, {"rota": "APARECIDA", "fat": [5934.98, 8658.11, 5493.14, 4250.28, 12464.62, 5490.53, 5836.78, 7328.04, 18638.19, 11895.95, 4599.54, 10981.2, 4732.46, 10287.76, 34046.56, 17529.85], "ped": [3, 6, 4, 2, 7, 3, 4, 4, 9, 8, 4, 5, 4, 7, 13, 9]}, {"rota": "ARACOIABA DA SERRA", "fat": [25742.68, 10591.35, 12364.72, 6197.1, 8385.23, 10656.79, 22961.95, 10670.16, 33838.36, 26087.46, 24141.61, 27130.07, 29872.61, 7510.0, 21879.66, 10158.92], "ped": [15, 11, 12, 3, 6, 9, 16, 12, 17, 18, 16, 19, 15, 8, 17, 10]}, {"rota": "AREALVA", "fat": [10294.73, 11116.04, 20109.65, 11916.67, 12923.56, 18875.84, 2276.98, 1935.1, 1420.0, 0.0, 1827.43, 2627.31, 0.0, 0.0, 0.0, 0.0], "ped": [8, 5, 8, 6, 7, 8, 1, 1, 1, 0, 1, 3, 0, 0, 0, 0]}, {"rota": "AREIOPOLIS", "fat": [3912.81, 4778.12, 7120.88, 2514.9, 4120.48, 3067.7, 4233.52, 2524.49, 2558.9, 4107.68, 1082.33, 6586.46, 3091.99, 3025.46, 2199.2, 9452.96], "ped": [2, 3, 7, 2, 4, 4, 3, 3, 2, 3, 1, 3, 2, 3, 2, 4]}, {"rota": "ARUJA", "fat": [24264.67, 44010.2, 35360.2, 39220.34, 61928.33, 64956.47, 77705.64, 43365.98, 29985.57, 41083.44, 48643.7, 37615.78, 60787.0, 61328.85, 85730.49, 36615.74], "ped": [17, 25, 24, 21, 32, 34, 39, 40, 31, 31, 37, 27, 36, 30, 40, 23]}, {"rota": "ATIBAIA", "fat": [9101.2, 10702.1, 9342.31, 12259.94, 11604.8, 3242.43, 9689.88, 5587.04, 3930.23, 8159.39, 4268.19, 5146.35, 11695.41, 4150.46, 6970.02, 10191.58], "ped": [5, 7, 8, 5, 6, 3, 5, 5, 4, 8, 2, 3, 7, 1, 4, 5]}, {"rota": "AVAI", "fat": [1577.59, 1295.35, 802.6, 0.0, 1871.16, 1194.68, 1586.0, 0.0, 0.0, 2118.28, 0.0, 0.0, 1588.85, 0.0, 3263.43, 1567.8], "ped": [2, 2, 1, 0, 2, 1, 1, 0, 0, 2, 0, 0, 1, 0, 3, 2]}, {"rota": "BARRA BONITA", "fat": [588.8, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "BARRA DO TURVO", "fat": [6172.6, 8748.25, 9552.19, 0.0, 1670.54, 4772.78, 8785.51, 11090.46, 5497.07, 4167.44, 465.72, 2720.86, 6112.02, 1693.7, 19191.94, 6268.54], "ped": [3, 4, 4, 0, 2, 2, 4, 4, 3, 3, 1, 1, 2, 1, 6, 2]}, {"rota": "BARUERI", "fat": [89013.0, 91555.19, 78672.54, 52291.75, 78275.13, 73667.19, 88205.0, 70690.02, 54422.81, 65736.85, 69493.21, 77554.39, 76028.02, 68450.17, 88277.81, 85177.59], "ped": [26, 36, 22, 18, 26, 26, 24, 31, 23, 25, 24, 27, 19, 26, 30, 25]}, {"rota": "BAURU", "fat": [82193.82, 84055.59, 85866.91, 42805.95, 67473.84, 68482.56, 43928.65, 56644.25, 54333.06, 46565.18, 50498.25, 58966.44, 49334.29, 67378.42, 77353.08, 65647.32], "ped": [39, 40, 45, 23, 37, 32, 24, 35, 34, 31, 29, 29, 30, 46, 47, 42]}, {"rota": "BERTIOGA", "fat": [440628.24, 258174.77, 243364.99, 186098.15, 235333.09, 204805.14, 242291.38, 233658.35, 237488.61, 265774.48, 282733.92, 433878.32, 350358.08, 198330.86, 238391.35, 291361.21], "ped": [179, 168, 142, 125, 132, 117, 130, 138, 143, 165, 135, 175, 163, 115, 143, 157]}, {"rota": "BIRITIBA-MIRIM", "fat": [0.0, 0.0, 3204.07, 0.0, 959.85, 2292.37, 652.1, 4869.96, 6170.18, 996.85, 3985.12, 1871.35, 2833.49, 0.0, 3886.32, 653.58], "ped": [0, 0, 2, 0, 1, 3, 1, 4, 3, 1, 1, 1, 2, 0, 2, 1]}, {"rota": "BOITUVA", "fat": [1153.35, 1455.95, 0.0, 859.26, 900.13, 476.66, 1456.0, 1404.97, 0.0, 1243.54, 0.0, 1445.81, 1614.0, 0.0, 0.0, 0.0], "ped": [1, 2, 0, 1, 1, 2, 2, 1, 0, 2, 0, 1, 2, 0, 0, 0]}, {"rota": "BOM JESUS DOS PERDOES", "fat": [1224.0, 7947.91, 8972.74, 474.88, 4271.4, 6513.95, 883.77, 0.0, 0.0, 0.0, 3114.0, 0.0, 517.5, 3294.0, 0.0, 0.0], "ped": [1, 4, 4, 1, 3, 3, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0]}, {"rota": "BOREBI", "fat": [2614.47, 1910.1, 4197.35, 1914.02, 2159.57, 2862.55, 4667.02, 4278.71, 1581.68, 0.0, 0.0, 4487.41, 5807.39, 0.0, 0.0, 3772.44], "ped": [2, 3, 2, 1, 1, 1, 2, 2, 1, 0, 0, 1, 2, 0, 0, 1]}, {"rota": "BOTUCATU", "fat": [50600.93, 85695.43, 77067.33, 44368.75, 30717.57, 26879.57, 12810.25, 29735.28, 10493.84, 5585.13, 7717.93, 4605.1, 23352.45, 8427.41, 21206.85, 12273.6], "ped": [16, 20, 26, 15, 13, 14, 7, 17, 10, 6, 5, 2, 12, 5, 10, 9]}, {"rota": "BRAGANCA PAULISTA", "fat": [21800.93, 24695.2, 12382.11, 6253.1, 8687.31, 6770.59, 13861.04, 9565.1, 11385.96, 8268.65, 19990.75, 10969.13, 11473.36, 12970.97, 11635.88, 11380.97], "ped": [12, 12, 5, 4, 6, 4, 7, 8, 8, 7, 9, 5, 8, 10, 10, 8]}, {"rota": "BURI", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 2690.63, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "COSMOPOLIS", "fat": [0.0, 0.0, 4373.72, 2526.18, 1105.67, 0.0, 0.0, 2781.84, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3528.01, 0.0], "ped": [0, 0, 3, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0]}, {"rota": "Campina do Monte Alegre", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 625.8, 10203.97, 8229.88, 13243.63, 7542.61, 6068.48, 11232.02], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 6, 4, 3, 4]}, {"rota": "Canas", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 709.71, 0.0, 0.0, 0.0, 667.85, 2554.02], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1]}, {"rota": "CABREUVA", "fat": [906.8, 857.06, 812.34, 0.0, 1655.43, 955.37, 0.0, 5373.27, 7886.4, 3963.05, 6194.35, 3918.81, 7211.51, 5631.83, 0.0, 6047.39], "ped": [1, 1, 1, 0, 2, 1, 0, 2, 4, 1, 1, 2, 3, 4, 0, 2]}, {"rota": "CAPELA DO ALTO", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2124.9, 0.0, 0.0, 0.0, 2816.5, 1399.69, 2299.6, 0.0, 0.0, 0.0], "ped": [0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 1, 1, 0, 0, 0]}, {"rota": "CACAPAVA", "fat": [30932.19, 20929.86, 11955.34, 1145.65, 6780.34, 10949.08, 24274.91, 17203.87, 9660.5, 18899.08, 11050.26, 6948.16, 11944.35, 2775.79, 3519.22, 7912.1], "ped": [16, 16, 10, 1, 8, 12, 18, 12, 10, 13, 10, 6, 17, 8, 4, 10]}, {"rota": "CACHOEIRA PAULISTA", "fat": [19870.68, 9884.37, 11745.08, 11608.75, 20333.06, 12494.16, 12861.92, 22964.85, 18816.34, 27621.38, 15023.82, 5957.05, 25183.46, 16311.41, 43140.65, 23216.97], "ped": [10, 6, 7, 8, 13, 10, 9, 11, 9, 11, 13, 5, 16, 11, 18, 17]}, {"rota": "CAFELANDIA", "fat": [2316.49, 5998.18, 3944.25, 2505.0, 530.39, 1800.96, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [1, 3, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "CAIEIRAS", "fat": [36661.61, 35127.85, 31428.95, 17634.75, 25421.13, 21995.54, 21914.59, 18591.05, 13656.2, 25994.11, 23067.57, 21935.95, 19269.36, 17079.31, 26346.03, 32375.45], "ped": [26, 29, 25, 16, 31, 24, 21, 20, 15, 28, 19, 19, 20, 18, 22, 22]}, {"rota": "CAJAMAR", "fat": [19913.01, 19554.16, 14668.7, 6994.83, 7234.47, 5400.02, 14620.97, 5969.92, 10009.17, 11582.66, 6037.65, 7757.77, 18961.81, 1748.84, 13829.26, 15293.36], "ped": [13, 15, 9, 5, 6, 6, 9, 5, 7, 10, 5, 6, 10, 2, 10, 5]}, {"rota": "CAJATI", "fat": [7008.38, 8696.82, 9710.98, 6007.92, 8698.85, 12104.37, 13192.64, 15066.94, 7492.41, 18786.96, 13351.87, 7981.99, 19193.47, 23327.74, 27011.09, 40316.67], "ped": [4, 7, 9, 5, 6, 7, 6, 9, 4, 8, 5, 5, 9, 8, 11, 12]}, {"rota": "CAMPINAS", "fat": [116532.4, 58877.73, 94950.8, 57560.51, 70421.3, 66187.45, 58047.42, 48627.65, 45317.37, 56872.81, 61601.0, 33154.62, 61058.55, 32977.64, 57672.56, 43740.22], "ped": [71, 45, 54, 46, 50, 46, 41, 42, 33, 37, 29, 27, 33, 22, 28, 30]}, {"rota": "CAMPO LIMPO PAULISTA", "fat": [24449.63, 22007.02, 20656.68, 11351.44, 18084.75, 14205.36, 34077.71, 19616.49, 21160.14, 33745.98, 27005.46, 26386.46, 31129.9, 25994.52, 34235.49, 31185.86], "ped": [15, 12, 18, 10, 16, 12, 19, 15, 17, 23, 17, 14, 18, 14, 20, 17]}, {"rota": "CAMPOS DO JORDAO", "fat": [6529.84, 4394.7, 10384.27, 2070.0, 0.0, 0.0, 5096.02, 1072.6, 2099.7, 3485.76, 1198.08, 1002.0, 830.4, 0.0, 2562.97, 5179.23], "ped": [3, 4, 6, 2, 0, 0, 4, 2, 1, 3, 2, 1, 1, 0, 2, 5]}, {"rota": "Capivari", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1871.19, 9355.21, 5335.05, 16307.73, 15091.19, 22745.65, 29923.18, 18718.94, 23672.59], "ped": [0, 0, 0, 0, 0, 0, 0, 2, 8, 5, 9, 7, 10, 16, 11, 18]}, {"rota": "CANANEIA", "fat": [6587.95, 10267.25, 7489.53, 11326.32, 2806.19, 10609.23, 45919.01, 23066.18, 15758.93, 24383.58, 16682.95, 27060.75, 45979.67, 4952.63, 22418.58, 26185.98], "ped": [4, 5, 5, 5, 2, 3, 9, 8, 6, 5, 8, 9, 19, 6, 8, 10]}, {"rota": "CANANÉIA", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2088.4, 12797.14, 4492.85, 4020.17, 3673.08], "ped": [4, 5, 5, 5, 2, 3, 9, 8, 6, 5, 8, 9, 19, 6, 8, 10]}, {"rota": "CARAGUATATUBA", "fat": [92430.4, 130870.52, 167446.39, 91809.39, 148500.29, 100278.02, 85890.72, 104357.46, 55144.36, 87961.92, 84851.01, 86807.52, 54972.21, 93855.14, 109280.56, 71088.36], "ped": [47, 54, 56, 31, 58, 51, 58, 56, 37, 47, 49, 44, 31, 41, 66, 61]}, {"rota": "CARAPICUIBA", "fat": [27783.45, 32539.06, 23075.43, 8336.4, 27135.38, 28354.63, 43157.71, 22434.67, 25333.03, 16539.76, 24268.06, 21965.77, 48607.14, 5661.8, 38287.03, 25741.27], "ped": [17, 13, 13, 8, 13, 13, 16, 13, 15, 12, 10, 7, 15, 6, 17, 11]}, {"rota": "CAPAO BONITO", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1014.0, 1555.22, 0.0, 10785.3, 12819.41, 14094.04, 17582.01, 10022.91, 10731.0, 594.6], "ped": [0, 0, 0, 0, 0, 0, 1, 2, 0, 3, 8, 5, 9, 4, 7, 1]}, {"rota": "CESARIO LANGE", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 6560.0, 3664.0, 0.0, 2875.6, 2435.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0]}, {"rota": "CERQUILHO", "fat": [0.0, 0.0, 0.0, 1469.73, 1397.87, 4913.2, 1834.82, 2207.85, 0.0, 693.15, 551.25, 1413.88, 558.75, 0.0, 0.0, 1127.05], "ped": [0, 0, 0, 1, 2, 3, 1, 2, 0, 1, 1, 1, 1, 0, 0, 1]}, {"rota": "CONCHAS", "fat": [0.0, 0.0, 0.0, 0.0, 5101.03, 1804.32, 4335.8, 5033.16, 1105.45, 4573.82, 461.59, 0.0, 0.0, 0.0, 0.0, 4004.68], "ped": [0, 0, 0, 0, 2, 3, 2, 4, 1, 2, 1, 0, 0, 0, 0, 2]}, {"rota": "COTIA", "fat": [17987.36, 13972.25, 12731.16, 1000.99, 18122.48, 15106.88, 10688.35, 12962.36, 7859.73, 13629.58, 22475.49, 9385.91, 22735.59, 7214.71, 25822.4, 8743.77], "ped": [3, 8, 2, 1, 7, 2, 6, 6, 7, 9, 7, 8, 7, 5, 9, 4]}, {"rota": "CRUZEIRO", "fat": [10707.84, 4380.49, 3924.21, 7820.59, 6044.32, 8293.57, 11135.1, 3927.68, 3603.09, 12240.07, 5200.62, 8622.64, 6332.74, 8875.35, 9759.12, 8485.65], "ped": [6, 7, 5, 4, 5, 7, 8, 5, 5, 9, 7, 7, 7, 9, 10, 11]}, {"rota": "CUBATAO", "fat": [65421.34, 60521.15, 59875.95, 50475.55, 80671.7, 65240.88, 76765.72, 68039.07, 58750.55, 87356.7, 65418.43, 70041.19, 63431.84, 60621.85, 62654.9, 69399.83], "ped": [47, 41, 46, 33, 48, 44, 53, 41, 43, 51, 48, 40, 43, 37, 45, 43]}, {"rota": "CUNHA", "fat": [2398.4, 2848.04, 3406.85, 0.0, 0.0, 1046.7, 8080.64, 7935.62, 0.0, 6596.16, 3237.86, 3095.8, 8990.43, 2152.4, 8067.69, 6378.05], "ped": [1, 1, 2, 0, 0, 1, 2, 4, 0, 2, 2, 1, 4, 2, 4, 4]}, {"rota": "DIADEMA", "fat": [264877.43, 197991.03, 200191.75, 189258.45, 214852.37, 213784.28, 229566.18, 186135.45, 190451.51, 208340.81, 194128.66, 165903.72, 167303.43, 190044.41, 206681.81, 199427.68], "ped": [161, 143, 140, 111, 145, 136, 152, 134, 133, 156, 121, 132, 117, 131, 146, 150]}, {"rota": "ELDORADO", "fat": [0.0, 0.0, 0.0, 0.0, 1247.76, 0.0, 3112.15, 11307.18, 6100.92, 1374.24, 0.0, 0.0, 0.0, 458.86, 0.0, 936.76], "ped": [0, 0, 0, 0, 1, 0, 2, 4, 1, 2, 0, 0, 0, 1, 0, 1]}, {"rota": "ELDORADO PAULISTA", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1605.95, 0.0], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0]}, {"rota": "EMBU DAS ARTES", "fat": [117337.54, 92701.0, 75494.27, 78600.11, 95732.92, 81509.73, 114742.03, 102518.02, 76979.28, 102154.3, 61742.49, 63296.92, 97565.45, 106943.84, 118516.43, 70892.87], "ped": [54, 35, 33, 32, 44, 34, 44, 43, 40, 46, 25, 25, 38, 35, 46, 37]}, {"rota": "EMBU-GUACU", "fat": [43778.65, 48154.1, 32376.32, 22384.12, 37063.62, 27302.15, 37001.57, 18927.44, 38797.68, 15440.26, 18023.57, 16981.32, 19480.97, 28459.31, 40057.75, 26171.72], "ped": [18, 23, 19, 9, 15, 12, 14, 10, 12, 9, 7, 8, 11, 15, 17, 15]}, {"rota": "FERRAZ DE VASCONCELOS", "fat": [6392.17, 8087.29, 3650.86, 16150.4, 3169.36, 6345.9, 5688.26, 11409.71, 13570.15, 11683.49, 4316.05, 11191.38, 4831.4, 3102.44, 2168.21, 8644.73], "ped": [4, 4, 3, 5, 3, 5, 3, 8, 5, 6, 3, 7, 1, 2, 2, 4]}, {"rota": "FRANCISCO MORATO", "fat": [19693.84, 13563.8, 21315.38, 16422.08, 21893.22, 18853.78, 22975.3, 32110.24, 26965.25, 28105.63, 34183.7, 18112.05, 21850.71, 34186.36, 41794.54, 27571.7], "ped": [17, 13, 16, 14, 16, 16, 17, 22, 11, 14, 13, 10, 16, 19, 24, 18]}, {"rota": "FRANCO DA ROCHA", "fat": [61279.08, 35819.0, 35035.46, 42587.18, 36203.62, 39122.96, 40171.3, 38046.83, 45949.39, 71847.16, 45818.43, 29756.09, 57857.71, 52864.96, 55884.62, 54534.06], "ped": [29, 20, 20, 19, 23, 19, 23, 20, 21, 32, 25, 20, 38, 29, 26, 29]}, {"rota": "GARÇA", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 356.53, 0.0, 0.0, 0.0, 0.0], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0]}, {"rota": "GUARAREMA", "fat": [10351.61, 11708.47, 10297.22, 5892.78, 8684.11, 6839.87, 8076.35, 5467.61, 9227.19, 5772.78, 3943.92, 5117.38, 4274.13, 16945.09, 18364.83, 9005.96], "ped": [8, 12, 10, 6, 10, 8, 10, 7, 4, 7, 4, 7, 5, 9, 11, 9]}, {"rota": "GUAPIARA", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 14989.04, 6351.01, 7901.18, 7969.77, 0.0, 2918.37, 12647.69, 5517.76, 531.42, 1554.65, 3070.97], "ped": [0, 0, 0, 0, 0, 4, 3, 5, 3, 0, 2, 6, 5, 1, 1, 3]}, {"rota": "GUARATINGUETA", "fat": [28836.56, 27808.62, 22900.91, 12765.29, 28393.25, 15830.14, 22434.49, 25862.61, 22669.71, 12851.28, 9845.02, 10831.71, 24106.86, 12823.73, 17635.19, 13209.74], "ped": [19, 13, 21, 15, 22, 18, 20, 20, 17, 11, 9, 12, 17, 13, 18, 15]}, {"rota": "GUARANTA", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 3786.8, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "GUARUJA", "fat": [489888.11, 480268.17, 484436.1, 353212.86, 471700.95, 494173.32, 555156.42, 576917.9, 493401.43, 499876.39, 512465.45, 568559.33, 462674.67, 361984.64, 461549.29, 475658.21], "ped": [282, 260, 259, 187, 268, 251, 281, 289, 250, 268, 260, 272, 249, 222, 251, 243]}, {"rota": "GUARUJÁ", "fat": [3222.88, 6977.52, 1127.47, 2870.96, 2707.21, 6912.47, 0.0, 4242.7, 695.2, 3845.85, 5029.61, 1508.25, 4532.04, 6817.01, 3065.87, 0.0], "ped": [282, 260, 259, 187, 268, 251, 281, 289, 250, 268, 260, 272, 249, 222, 251, 243]}, {"rota": "GUARULHOS", "fat": [285377.14, 264151.92, 277779.65, 197738.21, 260423.2, 251488.31, 356118.08, 308321.36, 295315.21, 343683.0, 307904.38, 239493.29, 358790.52, 285590.43, 328219.25, 282835.24], "ped": [140, 148, 155, 109, 129, 132, 183, 168, 160, 176, 152, 129, 169, 145, 169, 149]}, {"rota": "HORTOLANDIA", "fat": [4841.48, 0.0, 13173.91, 4203.06, 1911.9, 1577.82, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 957.69, 0.0, 7561.83, 6028.11], "ped": [2, 0, 8, 2, 1, 1, 0, 0, 4, 5, 6, 3, 8, 7, 12, 3]}, {"rota": "Hortolândia", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4303.61, 8178.18, 5982.31, 5856.79, 10211.46, 8634.33, 5354.76, 3163.83], "ped": [2, 0, 8, 2, 1, 1, 0, 0, 4, 5, 6, 3, 8, 7, 12, 3]}, {"rota": "IBIUNA", "fat": [16347.53, 10334.3, 16318.41, 7982.0, 9044.91, 9731.96, 13626.35, 5038.18, 5840.12, 13358.59, 8835.69, 8107.62, 11716.66, 8614.14, 6524.23, 14664.74], "ped": [8, 6, 6, 5, 3, 3, 5, 2, 4, 5, 5, 5, 7, 5, 3, 9]}, {"rota": "ITAPEVA", "fat": [0.0, 0.0, 0.0, 0.0, 21209.62, 43790.15, 45410.64, 68012.41, 33001.54, 48879.64, 51177.82, 32940.03, 62815.55, 28631.59, 38202.2, 44602.3], "ped": [0, 0, 0, 0, 14, 25, 35, 38, 21, 28, 32, 21, 40, 17, 25, 21]}, {"rota": "IGUAPE", "fat": [20932.05, 8267.09, 19723.35, 4898.31, 13385.78, 11972.26, 18707.09, 10823.69, 14230.84, 21209.17, 5424.24, 19498.28, 25115.56, 9314.72, 8371.23, 23206.21], "ped": [8, 5, 8, 3, 13, 10, 13, 8, 13, 16, 8, 10, 10, 5, 5, 10]}, {"rota": "ILHA COMPRIDA", "fat": [51854.41, 28177.66, 35548.95, 25755.13, 32321.97, 23894.68, 32079.44, 24183.34, 24005.1, 46402.6, 41816.78, 42316.36, 62115.44, 29130.8, 22904.27, 38512.08], "ped": [18, 18, 18, 11, 16, 12, 17, 14, 17, 22, 20, 19, 27, 15, 14, 23]}, {"rota": "IACANGA", "fat": [0.0, 0.0, 0.0, 0.0, 3785.81, 1862.67, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [0, 0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "ILHABELA", "fat": [47759.18, 48575.66, 46105.87, 42022.86, 52026.08, 52592.81, 76765.96, 77784.62, 36498.98, 74573.3, 68001.96, 82692.0, 59639.27, 57769.12, 77514.77, 70123.84], "ped": [19, 22, 24, 20, 26, 19, 36, 31, 16, 31, 26, 28, 23, 23, 28, 28]}, {"rota": "INDAIATUBA", "fat": [25084.39, 19148.04, 36410.19, 14774.84, 8443.02, 24982.44, 20552.58, 19628.02, 31377.28, 42614.66, 36505.35, 30983.25, 37029.53, 27642.34, 45068.2, 42167.32], "ped": [27, 19, 14, 14, 10, 22, 21, 23, 32, 35, 21, 24, 29, 25, 39, 33]}, {"rota": "IPERO", "fat": [1049.55, 0.0, 2269.26, 2092.99, 10123.46, 11381.99, 7007.63, 0.0, 13201.29, 10023.78, 6960.49, 4136.34, 3867.05, 1411.74, 5794.48, 8299.23], "ped": [1, 0, 3, 1, 3, 3, 3, 1, 6, 7, 3, 3, 5, 1, 2, 3]}, {"rota": "IPORANGA", "fat": [4752.29, 11169.82, 7556.36, 0.0, 18568.03, 661.0, 0.0, 16933.42, 7161.73, 1736.86, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [1, 2, 1, 0, 2, 1, 0, 3, 1, 2, 0, 0, 0, 0, 0, 0]}, {"rota": "ITANHAEM", "fat": [303169.76, 218495.13, 211129.73, 166661.71, 229154.27, 204948.9, 250334.59, 247847.73, 258070.48, 263383.91, 251131.22, 380964.53, 311436.42, 229626.01, 232933.88, 248696.1], "ped": [198, 135, 151, 119, 161, 138, 178, 168, 158, 189, 161, 209, 184, 153, 153, 162]}, {"rota": "ITAPECERICA DA SERRA", "fat": [209462.11, 146813.36, 123330.59, 105109.44, 137312.94, 126925.81, 154500.87, 126941.68, 144039.28, 182433.05, 158999.11, 116532.79, 120979.49, 126730.67, 106188.74, 122248.62], "ped": [107, 81, 73, 58, 84, 76, 89, 76, 80, 100, 71, 67, 77, 63, 56, 73]}, {"rota": "ITAPEVI", "fat": [33019.43, 41080.83, 51499.93, 26904.81, 22757.05, 41723.08, 41053.23, 21254.82, 42568.8, 32039.9, 32981.91, 36561.95, 28341.66, 18639.26, 20958.52, 29681.67], "ped": [17, 18, 24, 13, 10, 19, 14, 9, 15, 9, 12, 14, 14, 6, 9, 16]}, {"rota": "ITAQUAQUECETUBA", "fat": [53563.08, 52694.37, 72000.51, 39352.92, 69737.68, 48302.1, 60224.54, 52047.93, 57460.51, 47269.35, 51141.68, 51969.15, 69422.12, 65390.75, 71330.03, 54787.5], "ped": [31, 30, 45, 24, 34, 31, 38, 34, 34, 33, 34, 27, 35, 33, 39, 29]}, {"rota": "ITARIRI", "fat": [13592.14, 15875.03, 16148.76, 6782.48, 16175.15, 8715.26, 16124.91, 12262.3, 12062.17, 14239.1, 16017.1, 26736.95, 21033.86, 28969.8, 14219.46, 23449.7], "ped": [10, 10, 10, 6, 11, 8, 14, 10, 11, 13, 10, 12, 13, 13, 10, 18]}, {"rota": "ITATIBA", "fat": [506.6, 2065.29, 0.0, 776.14, 963.72, 1470.23, 1470.34, 0.0, 1381.71, 2496.09, 1938.28, 1155.0, 4132.85, 1439.53, 584.54, 4537.67], "ped": [1, 2, 0, 1, 1, 2, 2, 1, 2, 3, 1, 1, 3, 2, 1, 4]}, {"rota": "ITABERA", "fat": [0.0, 0.0, 0.0, 0.0, 3115.44, 7167.26, 10737.46, 9358.29, 9675.65, 3716.77, 8360.4, 2887.33, 13423.6, 3892.78, 13539.95, 5741.19], "ped": [0, 0, 0, 0, 3, 4, 4, 3, 4, 4, 5, 3, 7, 3, 6, 4]}, {"rota": "ITAOCA", "fat": [0.0, 0.0, 0.0, 0.0, 1140.91, 1982.7, 0.0, 7926.13, 5912.02, 14174.98, 9002.1, 6495.94, 15850.88, 9094.57, 10118.49, 24285.77], "ped": [0, 0, 0, 0, 1, 2, 0, 2, 2, 3, 4, 4, 6, 4, 4, 5]}, {"rota": "ITU", "fat": [7754.89, 7629.22, 6032.31, 10415.25, 15511.93, 11587.25, 18366.78, 4717.02, 14467.65, 10230.19, 6572.27, 3986.53, 13352.3, 9633.68, 14356.28, 16035.17], "ped": [7, 4, 6, 7, 8, 11, 9, 5, 11, 6, 6, 4, 7, 8, 13, 9]}, {"rota": "ITUPEVA", "fat": [48309.09, 31839.04, 43259.62, 41385.89, 45604.12, 50392.24, 61096.93, 32877.82, 47392.02, 40390.8, 33981.82, 25051.77, 48327.41, 36641.0, 47588.31, 33333.77], "ped": [28, 19, 23, 18, 20, 27, 31, 21, 26, 29, 14, 18, 30, 19, 27, 22]}, {"rota": "ITAPETININGA", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5276.87, 1167.76, 2671.87, 6459.06, 8619.31, 5433.42, 3793.4, 9177.88, 14178.61], "ped": [0, 0, 0, 0, 0, 0, 0, 5, 2, 3, 5, 9, 5, 4, 6, 11]}, {"rota": "JACAREI", "fat": [46949.4, 38736.15, 33396.78, 24079.4, 27295.12, 27033.84, 47508.24, 45389.73, 28702.72, 41008.96, 32960.9, 21291.47, 37855.41, 44282.78, 30045.8, 35692.94], "ped": [47, 44, 37, 23, 31, 26, 40, 36, 33, 43, 35, 27, 36, 42, 42, 40]}, {"rota": "Jacareí", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 475.39, 3272.9, 4829.34, 6293.78, 11067.36, 4068.59, 4012.08, 6385.14], "ped": [47, 44, 37, 23, 31, 26, 40, 36, 33, 43, 35, 27, 36, 42, 42, 40]}, {"rota": "JACUPIRANGA", "fat": [10640.38, 5990.15, 11111.0, 1335.62, 2411.65, 2811.94, 11281.14, 8547.21, 5871.42, 8107.58, 3855.94, 23937.75, 15748.21, 5996.55, 4533.61, 6117.1], "ped": [11, 6, 7, 2, 3, 3, 5, 7, 6, 8, 4, 13, 10, 5, 4, 4]}, {"rota": "JAGUARIUNA", "fat": [18380.93, 1443.41, 0.0, 2430.87, 7179.89, 1617.19, 3177.99, 829.04, 5427.09, 4224.94, 1833.26, 3520.17, 4020.14, 2229.01, 859.42, 772.78], "ped": [6, 2, 0, 3, 7, 2, 5, 1, 6, 5, 2, 4, 6, 3, 1, 1]}, {"rota": "JANDIRA", "fat": [17239.76, 10571.75, 34079.72, 5192.95, 32164.17, 29386.85, 29781.89, 32008.24, 25301.98, 21394.76, 36438.47, 13774.7, 41722.63, 13137.7, 35908.2, 23860.56], "ped": [8, 4, 9, 4, 10, 11, 12, 9, 10, 12, 11, 8, 13, 4, 13, 9]}, {"rota": "JARINU", "fat": [13188.21, 1361.29, 5469.47, 2395.43, 6217.03, 5918.9, 4413.58, 2939.78, 6130.19, 5038.77, 1352.19, 4147.83, 5089.54, 6435.32, 7194.61, 11265.42], "ped": [4, 1, 5, 3, 4, 2, 4, 1, 4, 5, 2, 2, 5, 4, 6, 9]}, {"rota": "JUNDIAI", "fat": [57417.14, 41285.37, 31526.81, 28974.89, 36287.23, 41715.14, 36951.0, 37830.77, 27971.6, 37958.94, 31693.17, 25563.16, 35073.71, 31373.46, 46245.92, 44030.57], "ped": [40, 37, 30, 26, 31, 34, 32, 28, 25, 34, 24, 27, 33, 35, 44, 43]}, {"rota": "JUQUIA", "fat": [19549.32, 7496.5, 14464.56, 5798.13, 14385.44, 4622.41, 1814.1, 2759.56, 6392.8, 10097.5, 8388.41, 6423.58, 6605.24, 2715.75, 1245.66, 26582.68], "ped": [8, 6, 6, 5, 5, 4, 2, 3, 5, 8, 8, 8, 11, 8, 9, 10]}, {"rota": "Juquiá", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3332.05, 3841.68, 8098.72, 10474.82, 5713.45, 8636.41, 7461.51], "ped": [8, 6, 6, 5, 5, 4, 2, 3, 5, 8, 8, 8, 11, 8, 9, 10]}, {"rota": "JUQUITIBA", "fat": [1072.2, 3653.06, 1843.78, 0.0, 3594.78, 3054.04, 4872.02, 7680.76, 0.0, 1607.66, 4590.69, 2022.35, 3463.78, 2635.36, 1601.86, 1735.89], "ped": [1, 1, 1, 0, 4, 3, 4, 4, 0, 1, 4, 1, 3, 2, 1, 2]}, {"rota": "LAGOINHA", "fat": [0.0, 4873.72, 4220.17, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [0, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "LENCOIS PAULISTA", "fat": [516.68, 693.18, 2540.13, 561.68, 495.47, 487.84, 1210.49, 1583.95, 597.23, 465.85, 429.47, 1833.91, 1254.11, 0.0, 1143.06, 1741.54], "ped": [1, 1, 4, 1, 1, 1, 2, 3, 1, 1, 1, 3, 2, 0, 1, 3]}, {"rota": "Limeira", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2926.95, 14157.23, 7538.93, 11548.39, 1328.6, 14960.17, 11426.87, 10918.38], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 4, 12, 6, 8, 2, 9, 12, 9]}, {"rota": "LORENA", "fat": [53316.73, 33590.18, 54818.25, 20188.09, 60886.14, 58370.63, 44865.26, 40866.86, 37960.91, 43495.8, 35024.44, 28405.27, 22550.42, 27172.54, 49242.03, 49328.57], "ped": [21, 16, 22, 11, 35, 24, 26, 27, 20, 17, 18, 13, 14, 10, 16, 26]}, {"rota": "LUCIANOPOLIS", "fat": [0.0, 5183.63, 5414.88, 708.74, 4961.92, 12567.7, 3191.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [0, 2, 2, 1, 3, 4, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "MACATUBA", "fat": [3169.05, 0.0, 0.0, 1329.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "MAIRIPORA", "fat": [94291.6, 71540.63, 58734.78, 61258.96, 78027.37, 52467.47, 84236.99, 92386.39, 78623.23, 96809.57, 84931.3, 84647.87, 115230.22, 68087.05, 76308.66, 100969.99], "ped": [32, 37, 34, 28, 38, 29, 35, 40, 35, 46, 41, 34, 45, 34, 42, 47]}, {"rota": "MAUA", "fat": [365564.4, 328061.23, 358303.05, 258592.63, 394069.93, 343948.01, 402196.47, 402160.53, 331369.21, 397228.71, 500766.8, 324887.73, 385631.75, 377585.9, 395682.41, 368786.98], "ped": [319, 329, 340, 218, 339, 303, 345, 385, 314, 378, 307, 308, 320, 292, 353, 322]}, {"rota": "MIRACATU", "fat": [19378.92, 19001.79, 24621.78, 9125.7, 21508.88, 20039.4, 28960.37, 25617.41, 31166.73, 31349.14, 32200.46, 24469.08, 25040.39, 27118.18, 19920.38, 33147.54], "ped": [11, 17, 16, 8, 17, 12, 20, 19, 18, 22, 17, 14, 17, 15, 13, 18]}, {"rota": "MOGI DAS CRUZES", "fat": [215186.54, 199175.91, 219117.65, 132519.13, 178991.41, 179726.92, 208010.2, 202025.81, 178723.69, 223209.19, 218175.18, 193280.25, 228844.03, 179193.01, 230874.32, 206511.64], "ped": [118, 118, 133, 86, 124, 116, 126, 135, 108, 125, 126, 128, 139, 110, 133, 146]}, {"rota": "MONGAGUA", "fat": [199284.13, 147095.95, 156492.01, 132287.95, 174030.92, 168249.33, 226939.88, 191043.18, 183702.55, 177826.88, 225792.66, 283007.06, 234538.56, 147842.55, 136157.56, 159109.09], "ped": [107, 86, 85, 66, 76, 81, 105, 93, 94, 97, 102, 124, 111, 68, 56, 80]}, {"rota": "MONTE MOR", "fat": [489.48, 1761.42, 1950.25, 0.0, 0.0, 8085.62, 2757.5, 11999.83, 3459.87, 8464.58, 4066.2, 3038.25, 4256.76, 3576.19, 3656.52, 1369.77], "ped": [1, 1, 1, 0, 0, 1, 2, 19, 7, 10, 4, 4, 5, 4, 3, 3]}, {"rota": "NATIVIDADE DA SERRA", "fat": [1212.75, 3110.49, 5369.57, 1553.67, 1227.77, 2104.15, 4035.0, 3197.52, 0.0, 1855.65, 765.32, 0.0, 3616.56, 0.0, 1336.42, 0.0], "ped": [2, 4, 4, 2, 1, 2, 2, 2, 0, 2, 1, 0, 2, 0, 1, 0]}, {"rota": "NAZARE PAULISTA", "fat": [3491.49, 2587.59, 2179.02, 0.0, 1381.68, 0.0, 2069.21, 0.0, 2119.56, 2242.2, 0.0, 0.0, 2205.5, 2053.67, 2240.8, 4083.28], "ped": [2, 1, 1, 0, 1, 0, 1, 0, 1, 3, 0, 0, 2, 2, 2, 3]}, {"rota": "Nova Odessa", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4534.79, 0.0, 2026.98, 0.0, 312.91, 1371.14, 537.46, 1744.53], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 2, 0, 1, 2, 1, 2]}, {"rota": "NOVA CAMPINA", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 629.7, 1801.17, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "OSASCO", "fat": [146164.05, 134998.06, 120923.44, 77384.1, 86585.39, 78787.3, 119218.79, 89850.33, 72743.67, 69911.78, 50917.75, 58502.99, 107034.43, 36137.63, 66625.92, 91119.52], "ped": [58, 61, 47, 35, 42, 39, 45, 46, 43, 42, 31, 29, 41, 19, 36, 42]}, {"rota": "PAULINIA", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 766.24, 1474.17, 0.0, 0.0, 0.0, 4196.94, 1648.37, 8040.93], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 3, 5, 8, 8, 6, 7, 6, 10]}, {"rota": "PALMEIRA", "fat": [0.0, 0.0, 0.0, 323.79, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 41.94, 0.0], "ped": [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0]}, {"rota": "Paulínia", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1609.21, 5962.6, 13964.55, 19278.81, 10055.61, 8095.24, 8384.9, 4559.54], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 3, 5, 8, 8, 6, 7, 6, 10]}, {"rota": "PARAGUACU PAULISTA", "fat": [0.0, 1809.88, 0.0, 0.0, 0.0, 0.0, 0.0, 1022.76, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [0, 3, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "PARAIBUNA", "fat": [5360.01, 5762.9, 5649.19, 2324.28, 1920.53, 3470.08, 781.98, 3029.92, 6885.24, 5639.65, 20598.93, 22162.99, 7413.13, 3137.3, 5464.49, 9962.05], "ped": [4, 6, 4, 1, 2, 3, 1, 4, 4, 4, 10, 7, 5, 4, 4, 7]}, {"rota": "PARIQUERA-ACU", "fat": [1293.06, 1229.36, 8975.39, 3482.81, 2166.2, 0.0, 2693.5, 5333.63, 2128.74, 1359.0, 2551.86, 409.6, 2676.2, 2463.0, 7870.84, 4358.09], "ped": [1, 1, 5, 3, 1, 0, 2, 2, 2, 1, 2, 1, 3, 2, 4, 2]}, {"rota": "PEDRO DE TOLEDO", "fat": [46786.16, 20992.86, 25385.58, 12238.25, 38081.46, 8189.09, 28056.78, 13261.57, 18562.19, 16378.6, 15900.08, 8809.37, 13716.73, 12469.56, 10703.33, 22848.62], "ped": [14, 11, 10, 8, 13, 5, 12, 6, 7, 9, 7, 6, 6, 5, 5, 7]}, {"rota": "PILAR DO SUL", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 1922.77, 7703.97, 14925.83, 4098.5, 0.0, 1917.87, 1095.09, 2883.08, 0.0, 444.36, 1069.82], "ped": [0, 0, 0, 0, 0, 1, 4, 7, 2, 0, 2, 1, 2, 0, 1, 1]}, {"rota": "PERUIBE", "fat": [222521.01, 171380.28, 214862.36, 137641.15, 180624.73, 188616.58, 215029.91, 173181.08, 177308.51, 244159.53, 251400.43, 275036.51, 242642.22, 205498.27, 219830.32, 209554.98], "ped": [138, 125, 119, 86, 133, 117, 138, 139, 114, 160, 145, 153, 140, 117, 134, 146]}, {"rota": "PINDAMONHANGABA", "fat": [7772.22, 22227.86, 12950.28, 16394.57, 22473.19, 10706.45, 28139.27, 47298.83, 11710.02, 16950.98, 11507.2, 10609.43, 31027.49, 45153.18, 53594.85, 25208.99], "ped": [6, 12, 7, 6, 19, 9, 13, 24, 7, 11, 9, 8, 18, 28, 35, 17]}, {"rota": "PIRATININGA", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2086.0, 0.0], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0]}, {"rota": "PIQUETE", "fat": [2527.79, 0.0, 2320.3, 0.0, 1088.18, 1966.0, 11746.16, 1014.35, 3750.49, 4955.3, 1819.43, 0.0, 2038.95, 0.0, 3887.58, 663.28], "ped": [2, 0, 2, 0, 1, 1, 2, 1, 2, 4, 1, 0, 2, 0, 3, 1]}, {"rota": "PINHALZINHO", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 6205.15, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "PIRACAIA", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3125.92, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0]}, {"rota": "PIRACICABA", "fat": [0.0, 0.0, 9956.65, 0.0, 0.0, 0.0, 0.0, 1791.68, 16618.75, 15817.11, 29591.34, 25321.19, 41284.6, 19062.2, 47253.73, 34313.21], "ped": [0, 0, 7, 0, 0, 0, 0, 2, 15, 10, 20, 23, 30, 16, 40, 25]}, {"rota": "PIRAJUI", "fat": [462.3, 2626.68, 1823.0, 6948.98, 8911.68, 15496.69, 4879.68, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [1, 2, 1, 4, 7, 9, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "POA", "fat": [13493.09, 11469.4, 8928.69, 7084.4, 11985.4, 6443.75, 18170.3, 9574.89, 9056.78, 10861.87, 5294.69, 9438.12, 17639.84, 8681.66, 7519.87, 11933.99], "ped": [11, 9, 7, 6, 13, 5, 12, 9, 10, 14, 11, 12, 21, 18, 18, 21]}, {"rota": "PORANGABA", "fat": [1592.4, 1648.9, 0.0, 0.0, 0.0, 0.0, 0.0, 2257.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "PORTO FELIZ", "fat": [24341.33, 14962.79, 24317.83, 8904.09, 25527.32, 26771.35, 16897.62, 30729.29, 16092.36, 30400.23, 17032.19, 7573.64, 17070.53, 6088.57, 18322.97, 12340.2], "ped": [20, 10, 13, 11, 13, 17, 14, 13, 9, 24, 11, 6, 12, 7, 18, 9]}, {"rota": "POTIM", "fat": [8406.92, 2625.83, 2357.01, 502.29, 4403.75, 2315.85, 5559.86, 1833.55, 5284.98, 8320.99, 2852.99, 8524.04, 5319.35, 3230.42, 5672.47, 8881.92], "ped": [9, 4, 3, 1, 6, 2, 4, 2, 8, 11, 4, 9, 6, 3, 9, 8]}, {"rota": "PQ. SAO RAFAEL DIVISA MAUA", "fat": [1616.4, 0.0, 1167.2, 1196.76, 0.0, 0.0, 0.0, 888.37, 875.0, 3489.07, 933.9, 0.0, 0.0, 0.0, 1259.8, 4233.9], "ped": [1, 0, 1, 1, 0, 0, 0, 1, 1, 2, 1, 0, 0, 0, 1, 2]}, {"rota": "PEDERNEIRAS", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1194.17], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]}, {"rota": "PRAIA GRANDE", "fat": [292363.2, 269231.15, 282845.0, 216747.35, 303193.51, 270685.17, 310723.11, 303195.85, 283701.45, 332811.15, 325315.38, 321715.26, 287395.7, 230753.17, 221605.57, 271042.29], "ped": [234, 209, 213, 150, 216, 180, 228, 222, 206, 212, 191, 200, 196, 166, 167, 175]}, {"rota": "PRESIDENTE ALVES", "fat": [0.0, 5998.93, 0.0, 2114.29, 798.0, 2578.91, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [0, 2, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "REDENCAO DA SERRA", "fat": [4944.76, 8018.81, 15821.41, 0.0, 9129.53, 6337.13, 9308.27, 2478.84, 0.0, 3627.1, 2832.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [3, 2, 6, 0, 3, 2, 3, 2, 0, 1, 1, 0, 0, 0, 0, 0]}, {"rota": "REGINOPOLIS", "fat": [0.0, 2891.14, 0.0, 1321.3, 1614.08, 1700.44, 1252.49, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [0, 2, 0, 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "REGISTRO", "fat": [69637.45, 51369.21, 61240.85, 34236.17, 36457.23, 50086.63, 79937.38, 47498.39, 75552.45, 64004.48, 78363.71, 29118.01, 75137.52, 44607.63, 86193.47, 75244.43], "ped": [42, 35, 45, 26, 31, 25, 46, 33, 42, 48, 36, 26, 43, 31, 49, 45]}, {"rota": "RIBEIRAO PIRES", "fat": [92593.27, 98742.72, 72091.06, 50726.42, 93432.6, 75813.83, 62281.52, 44083.59, 47903.37, 71049.67, 58932.78, 23571.12, 50631.43, 27181.29, 46086.32, 54526.12], "ped": [54, 54, 36, 37, 54, 51, 51, 42, 48, 58, 41, 30, 50, 35, 47, 45]}, {"rota": "RIO GRANDE DA SERRA", "fat": [0.0, 1695.38, 0.0, 978.2, 542.7, 114.91, 1631.13, 2986.2, 326.07, 0.0, 0.0, 394.88, 387.24, 0.0, 0.0, 0.0], "ped": [0, 1, 0, 2, 2, 2, 4, 2, 1, 0, 0, 2, 2, 0, 0, 0]}, {"rota": "RIBEIRAO BRANCO", "fat": [0.0, 0.0, 0.0, 0.0, 9687.57, 8549.05, 11866.99, 14216.27, 11760.43, 20253.07, 14810.06, 11026.12, 12524.8, 7871.65, 18212.29, 16138.29], "ped": [0, 0, 0, 0, 2, 5, 8, 8, 8, 11, 8, 6, 7, 4, 5, 5]}, {"rota": "ROSEIRA", "fat": [10962.02, 10625.89, 21871.51, 8748.03, 3747.88, 14043.16, 16962.88, 4797.39, 5372.18, 10699.95, 16411.78, 27420.33, 19202.3, 21030.88, 5237.21, 6945.75], "ped": [3, 8, 8, 4, 5, 6, 7, 4, 3, 6, 7, 11, 5, 10, 5, 5]}, {"rota": "QUELUZ", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3009.55, 3483.25, 4553.12], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 4, 5]}, {"rota": "SALESOPOLIS", "fat": [11048.31, 5913.2, 1238.29, 1895.27, 4072.63, 5266.33, 2718.78, 0.0, 894.8, 5959.72, 3109.02, 4776.65, 4293.76, 2787.26, 3400.48, 0.0], "ped": [8, 6, 2, 2, 4, 5, 3, 1, 1, 6, 4, 4, 5, 3, 2, 0]}, {"rota": "SALTO", "fat": [16757.34, 18561.66, 13827.74, 13748.25, 13316.59, 16863.49, 35606.48, 27384.31, 37727.28, 35616.17, 45027.46, 30452.68, 52484.97, 32514.28, 21395.8, 32760.73], "ped": [9, 12, 11, 7, 8, 10, 25, 18, 20, 20, 23, 21, 32, 24, 13, 18]}, {"rota": "SALTO DE PIRAPORA", "fat": [14628.27, 12402.69, 6147.3, 4892.21, 5835.01, 8832.86, 14548.69, 3854.55, 5595.12, 11764.77, 10912.29, 14402.93, 10525.9, 14112.77, 13978.23, 22578.73], "ped": [2, 3, 5, 3, 5, 8, 8, 5, 5, 6, 7, 10, 5, 4, 6, 9]}, {"rota": "SANTA BARBARA D'OESTE", "fat": [11757.9, 2635.61, 10104.47, 2230.39, 10486.2, 5767.19, 5605.85, 6236.04, 15578.13, 17400.81, 12495.06, 8726.21, 6203.24, 10447.11, 7788.34, 15913.16], "ped": [7, 2, 5, 1, 6, 2, 5, 5, 12, 13, 9, 6, 6, 6, 6, 13]}, {"rota": "SANTA BRANCA", "fat": [17637.57, 23782.97, 20319.13, 17159.12, 23558.06, 15384.18, 18743.72, 24045.89, 14299.91, 30867.16, 21368.32, 30045.5, 30456.39, 23680.57, 22085.5, 28219.21], "ped": [10, 15, 11, 10, 15, 8, 10, 14, 8, 17, 11, 14, 13, 11, 8, 10]}, {"rota": "SANTA ISABEL", "fat": [16154.19, 16203.42, 9307.19, 5984.39, 15066.8, 10246.79, 7840.62, 2211.33, 9463.23, 12796.01, 10775.32, 9927.48, 14323.35, 7760.87, 11648.68, 5509.51], "ped": [6, 10, 6, 7, 10, 9, 8, 2, 8, 11, 6, 6, 8, 7, 8, 6]}, {"rota": "SANTANA DE PARNAIBA", "fat": [27034.74, 35366.01, 11185.92, 24412.63, 17502.78, 38610.2, 22862.12, 16998.22, 13252.59, 23872.92, 12834.15, 18634.1, 30719.35, 13442.09, 21061.99, 12695.36], "ped": [11, 13, 6, 12, 11, 15, 12, 9, 6, 14, 8, 9, 15, 6, 9, 6]}, {"rota": "SANTO ANDRE", "fat": [737524.78, 683868.43, 775646.28, 588463.6, 726617.7, 624097.7, 722245.26, 673864.79, 592685.62, 701472.98, 716836.32, 415674.88, 586357.4, 423934.0, 501264.39, 603687.15], "ped": [517, 542, 555, 392, 504, 502, 527, 484, 440, 534, 482, 373, 434, 330, 407, 430]}, {"rota": "SANTO ANTONIO DO PINHAL", "fat": [17040.03, 1584.32, 0.0, 0.0, 0.0, 0.0, 539.13, 0.0, 0.0, 0.0, 0.0, 385.04, 0.0, 0.0, 388.72, 0.0], "ped": [15, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0]}, {"rota": "SANTOS", "fat": [272331.09, 247201.13, 264414.01, 170458.37, 276827.18, 196984.17, 306432.13, 238346.43, 227666.72, 238371.36, 226572.43, 218539.54, 197679.04, 211189.18, 209573.95, 217593.2], "ped": [187, 183, 180, 126, 185, 135, 209, 168, 153, 161, 144, 146, 130, 138, 161, 141]}, {"rota": "SAO BERNARDO DO CAMPO", "fat": [583789.91, 668572.38, 554608.03, 415028.05, 598175.2, 539310.84, 600688.75, 561025.04, 555809.47, 679700.84, 550870.32, 511684.72, 555642.83, 545246.46, 580452.74, 573184.83], "ped": [352, 346, 331, 242, 358, 339, 387, 363, 337, 393, 320, 311, 316, 303, 357, 347]}, {"rota": "SãO BERNARDO DO CAMPO", "fat": [4001.97, 8065.93, 1220.66, 946.64, 4737.67, 3547.99, 5482.42, 16282.32, 11626.34, 28953.97, 92374.27, 85473.21, 101438.26, 102676.24, 121124.71, 72980.62], "ped": [352, 346, 331, 242, 358, 339, 387, 363, 337, 393, 320, 311, 316, 303, 357, 347]}, {"rota": "SAO CAETANO DO SUL", "fat": [175028.02, 140361.22, 113548.4, 90425.62, 125986.55, 115228.98, 154184.37, 150750.11, 122873.42, 135933.14, 111244.41, 84917.05, 111384.82, 100066.67, 123587.95, 93680.49], "ped": [80, 85, 63, 58, 74, 70, 88, 75, 75, 88, 71, 53, 66, 58, 76, 67]}, {"rota": "SÃO CAETANO DO SUL", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3637.14, 0.0, 2781.33, 5275.31, 4581.81, 3384.88, 0.0, 0.0, 0.0], "ped": [80, 85, 63, 58, 74, 70, 88, 75, 75, 88, 71, 53, 66, 58, 76, 67]}, {"rota": "SAO JOSE DOS CAMPOS", "fat": [279634.42, 245009.69, 256440.16, 190561.84, 259690.76, 275276.23, 328708.53, 265978.58, 210792.19, 285570.83, 257560.77, 214755.12, 305143.77, 238624.93, 241485.16, 299060.37], "ped": [187, 181, 164, 127, 179, 164, 210, 202, 175, 203, 185, 157, 195, 162, 170, 213]}, {"rota": "SAO LOURENCO DA SERRA", "fat": [601.95, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "SAO LUIZ DO PARAITINGA", "fat": [14801.84, 22059.61, 21336.06, 6360.57, 14157.23, 1524.45, 13965.78, 7351.08, 4063.64, 4137.0, 3574.05, 4556.71, 2909.07, 4618.85, 7630.72, 7180.54], "ped": [5, 9, 6, 4, 8, 2, 6, 3, 3, 3, 2, 4, 2, 4, 4, 4]}, {"rota": "SÃO LUIZ DO PARAITINGA", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 671.23, 0.0, 0.0, 0.0, 0.0], "ped": [5, 9, 6, 4, 8, 2, 6, 3, 3, 3, 2, 4, 2, 4, 4, 4]}, {"rota": "SAO PAULO", "fat": [1775711.19, 1708139.73, 1675235.08, 1290644.35, 1847478.68, 1615101.52, 1901721.28, 1593528.02, 1486912.23, 1697267.97, 1349846.23, 1213166.39, 1437867.55, 1341284.82, 1425818.8, 1472985.79], "ped": [1037, 1020, 966, 772, 1071, 931, 1112, 1029, 966, 1098, 897, 838, 915, 850, 967, 940]}, {"rota": "SARAPUI", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2626.64, 1218.3, 0.0, 10183.47], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 0, 1]}, {"rota": "SAO ROQUE", "fat": [2578.09, 4912.4, 8126.07, 1401.69, 4387.46, 3219.42, 6577.26, 3209.85, 5329.92, 14451.33, 5334.54, 8034.39, 9328.62, 4761.6, 10631.08, 7560.55], "ped": [3, 4, 6, 2, 5, 3, 7, 4, 3, 6, 5, 6, 4, 2, 4, 6]}, {"rota": "SAO SEBASTIAO", "fat": [277762.85, 165827.52, 149043.97, 110685.53, 158153.26, 159993.37, 254027.97, 187356.18, 159124.43, 174035.89, 183514.05, 196862.41, 109469.75, 162647.23, 145230.25, 123211.86], "ped": [124, 95, 83, 59, 87, 79, 102, 94, 68, 80, 82, 90, 70, 78, 70, 68]}, {"rota": "SAO VICENTE", "fat": [322553.2, 347776.02, 302140.2, 251783.52, 395285.72, 334076.26, 416569.65, 406138.51, 307110.91, 392338.65, 356664.24, 413105.83, 347666.53, 322997.84, 378706.4, 414850.6], "ped": [234, 240, 208, 190, 283, 247, 294, 260, 241, 281, 249, 262, 239, 211, 248, 257]}, {"rota": "SAO MIGUEL ARCANJO", "fat": [0.0, 0.0, 0.0, 0.0, 3579.68, 4001.82, 6076.07, 7632.08, 3503.13, 8420.6, 6219.47, 4013.91, 12152.08, 4400.94, 3931.79, 13614.0], "ped": [0, 0, 0, 0, 4, 5, 3, 5, 3, 5, 6, 3, 8, 5, 5, 10]}, {"rota": "São José do Barreiro", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2798.0, 3087.71, 0.0, 0.0, 0.0, 627.37], "ped": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1]}, {"rota": "SÃO MANUEL", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1199.42, 0.0, 0.0, 0.0], "ped": [0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]}, {"rota": "SETE BARRAS", "fat": [671.87, 0.0, 0.0, 3992.62, 2078.99, 2701.95, 827.88, 0.0, 0.0, 0.0, 1137.55, 4593.95, 8800.65, 22939.82, 8904.64, 2927.28], "ped": [1, 0, 0, 2, 1, 2, 1, 0, 0, 0, 2, 3, 5, 5, 5, 2]}, {"rota": "SILVEIRAS", "fat": [3541.56, 7680.24, 6378.89, 6822.6, 2747.42, 9907.32, 3939.9, 6904.22, 6272.24, 6042.58, 5810.4, 7424.72, 10538.89, 3908.94, 3539.18, 6867.53], "ped": [5, 5, 4, 2, 4, 5, 3, 4, 3, 5, 4, 3, 7, 3, 4, 3]}, {"rota": "SOROCABA", "fat": [92727.22, 66061.32, 60823.06, 58337.38, 110686.23, 126937.76, 108242.8, 95608.26, 94152.87, 126640.7, 91729.73, 68068.02, 127107.82, 81064.43, 100334.06, 89498.43], "ped": [48, 46, 44, 44, 87, 94, 78, 77, 74, 100, 61, 44, 79, 59, 75, 55]}, {"rota": "SOCORRO", "fat": [0.0, 0.0, 0.0, 3969.41, 8852.76, 6672.25, 3596.94, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [0, 0, 0, 1, 3, 5, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "Sumaré", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2504.09, 15740.92, 9827.17, 17874.46, 7811.07, 11602.59, 8454.35, 8675.47, 4909.07], "ped": [0, 0, 2, 0, 0, 0, 0, 4, 15, 12, 12, 9, 11, 9, 11, 5]}, {"rota": "SUMARE", "fat": [0.0, 0.0, 6205.28, 0.0, 0.0, 0.0, 0.0, 864.79, 3825.44, 5601.49, 570.02, 0.0, 914.75, 5770.11, 2177.53, 1530.82], "ped": [0, 0, 2, 0, 0, 0, 0, 4, 15, 12, 12, 9, 11, 9, 11, 5]}, {"rota": "SUZANO", "fat": [91183.36, 76977.75, 121265.29, 64591.56, 95590.02, 101377.95, 115932.38, 81231.13, 92478.96, 82624.62, 97312.79, 86653.01, 131584.81, 95293.08, 113723.89, 97218.24], "ped": [68, 59, 70, 36, 69, 68, 77, 62, 51, 50, 56, 51, 74, 62, 78, 58]}, {"rota": "TABOAO DA SERRA", "fat": [73206.7, 89503.82, 78528.26, 68192.12, 88194.03, 69004.84, 70278.11, 91771.68, 67618.19, 84572.06, 61337.38, 71843.1, 80698.57, 74339.48, 86479.02, 71064.15], "ped": [51, 49, 46, 36, 50, 46, 46, 50, 39, 51, 38, 35, 47, 41, 50, 38]}, {"rota": "TATUI", "fat": [1800.79, 890.08, 3613.08, 976.16, 7549.95, 4221.19, 5756.83, 6033.22, 7998.85, 19817.47, 0.0, 17245.17, 2148.13, 870.25, 1825.44, 0.0], "ped": [3, 1, 4, 1, 4, 2, 2, 5, 2, 6, 0, 11, 2, 1, 2, 0]}, {"rota": "TAQUARIVAI", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 3392.51, 4022.88, 3215.33, 1441.01, 4010.94, 8199.36, 1786.62, 5315.85, 563.34, 623.34, 4583.39], "ped": [0, 0, 0, 0, 0, 3, 3, 4, 2, 3, 7, 2, 4, 1, 1, 2]}, {"rota": "TAUBATE", "fat": [84521.07, 100680.59, 83606.75, 42626.76, 71179.46, 76008.06, 88217.78, 82137.91, 73028.99, 66551.43, 66240.47, 59005.16, 68420.56, 77141.14, 77124.28, 72180.36], "ped": [66, 83, 69, 40, 60, 61, 73, 69, 64, 51, 55, 52, 63, 60, 70, 62]}, {"rota": "TORRE DE PEDRA", "fat": [291.94, 0.0, 0.0, 86.13, 206.75, 108.47, 0.0, 0.0, 11.99, 201.75, 60.63, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [4, 0, 0, 2, 3, 4, 0, 1, 1, 2, 2, 0, 0, 0, 0, 0]}, {"rota": "TREMEMBE", "fat": [2394.43, 1653.66, 0.0, 0.0, 1856.57, 0.0, 521.61, 0.0, 0.0, 0.0, 0.0, 0.0, 537.12, 3334.15, 3392.38, 4068.42], "ped": [2, 1, 0, 0, 2, 0, 1, 0, 1, 0, 1, 0, 2, 1, 4, 3]}, {"rota": "TREMEMBÉ", "fat": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1359.0, 0.0, 805.2, 0.0, 473.28, 0.0, 0.0, 0.0], "ped": [2, 1, 0, 0, 2, 0, 1, 0, 1, 0, 1, 0, 2, 1, 4, 3]}, {"rota": "UBATUBA", "fat": [141938.4, 88840.14, 96545.87, 51391.11, 80925.55, 91140.44, 96754.21, 120866.75, 112101.79, 114202.62, 163451.91, 156643.84, 138060.64, 81648.07, 89690.14, 89147.82], "ped": [76, 61, 59, 33, 54, 66, 58, 80, 77, 69, 75, 65, 66, 44, 55, 58]}, {"rota": "UBIRAJARA", "fat": [0.0, 0.0, 5460.51, 7264.25, 7617.77, 14972.92, 2772.75, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ped": [0, 0, 1, 2, 3, 4, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"rota": "VARZEA PAULISTA", "fat": [75840.15, 57946.18, 59583.11, 51680.25, 59362.33, 53610.64, 100515.64, 67145.95, 58345.71, 63341.38, 53934.08, 44394.77, 69841.11, 42976.53, 56132.81, 57281.98], "ped": [39, 36, 28, 26, 32, 23, 38, 36, 27, 38, 21, 19, 33, 16, 27, 23]}, {"rota": "VOTORANTIM", "fat": [11417.63, 11668.34, 0.0, 8865.53, 14122.77, 21853.65, 15195.32, 17671.39, 17547.96, 18006.11, 22420.95, 18037.04, 15606.18, 11194.13, 21978.89, 12194.32], "ped": [2, 5, 0, 1, 4, 8, 4, 8, 9, 6, 7, 7, 6, 3, 8, 4]}]};
+const MONTHS = DATA.months;            // ['2025-01', ... '2026-04']
+const NM = MONTHS.length;
+const MN=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const fmt = s=>{const[y,m]=s.split('-');return {m:MN[+m-1],y:y.slice(2),full:MN[+m-1]+'/'+y};};
+const BRL=n=>Math.round(n).toLocaleString('pt-BR');
+const INT=n=>Math.round(n).toLocaleString('pt-BR');
+
+// precompute monthly totals
+const monFat=MONTHS.map((_,i)=>DATA.rows.reduce((s,r)=>s+r.fat[i],0));
+const monPed=MONTHS.map((_,i)=>DATA.rows.reduce((s,r)=>s+r.ped[i],0));
+
+// prettify names
+const SMALL=['da','de','do','dos','das','e'];
+const pretty=n=>n.toLowerCase().split(' ').map((w,i)=>SMALL.includes(w)&&i>0?w:w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+DATA.rows.forEach(r=>r.disp=pretty(r.rota));
+
+let from=0,to=NM-1, mode='fat', sortKey='fat', sortDir=-1, q='', clickState=null;
+
+// populate selects
+const selF=document.getElementById('selFrom'), selT=document.getElementById('selTo');
+MONTHS.forEach((m,i)=>{const f=fmt(m);
+  selF.insertAdjacentHTML('beforeend',`<option value="${i}">${f.full}</option>`);
+  selT.insertAdjacentHTML('beforeend',`<option value="${i}">${f.full}</option>`);
+});
+
+function setRange(a,b,preset){
+  from=Math.max(0,Math.min(a,b)); to=Math.min(NM-1,Math.max(a,b));
+  selF.value=from; selT.value=to;
+  document.querySelectorAll('#presets button').forEach(x=>x.classList.toggle('on',x.dataset.p===preset));
+  clickState=null;
+  update();
+}
+
+selF.onchange=()=>setRange(+selF.value,+selT.value,null);
+selT.onchange=()=>setRange(+selF.value,+selT.value,null);
+
+document.getElementById('presets').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return; const p=b.dataset.p;
+  if(p==='all')setRange(0,NM-1,'all');
+  else if(p==='2025'){const idx=MONTHS.map((m,i)=>m.startsWith('2025')?i:-1).filter(i=>i>=0);setRange(idx[0],idx[idx.length-1],'2025');}
+  else if(p==='2026'){const idx=MONTHS.map((m,i)=>m.startsWith('2026')?i:-1).filter(i=>i>=0);setRange(idx[0],idx[idx.length-1],'2026');}
+  else if(p==='l3')setRange(NM-3,NM-1,'l3');
+  else if(p==='l6')setRange(NM-6,NM-1,'l6');
+  else if(p==='l12')setRange(NM-12,NM-1,'l12');
+});
+
+// chart
+const chart=document.getElementById('chart');
+function buildChart(){
+  const mx=Math.max(...monFat);
+  chart.innerHTML=MONTHS.map((s,i)=>{const f=fmt(s);
+    return `<div class="col" data-i="${i}"><div class="bar-track"><div class="barfill" style="height:0" data-h="${monFat[i]/mx*100}">
+      <span class="tip">R$ ${BRL(monFat[i])}<br>${INT(monPed[i])} ped</span></div></div>
+      <span class="mlab">${f.m}<b>${f.y}</b></span></div>`;}).join('');
+  setTimeout(()=>chart.querySelectorAll('.barfill').forEach(b=>b.style.height=b.dataset.h+'%'),100);
+  chart.querySelectorAll('.col').forEach(c=>c.onclick=()=>{
+    const i=+c.dataset.i;
+    if(clickState===null){clickState=i;setRange(i,i,null);clickState=i;}
+    else{setRange(clickState,i,null);clickState=null;}
+  });
+}
+buildChart();
+
+// metrics + table
+const elFat=document.getElementById('rFat'),elFatAvg=document.getElementById('rFatAvg'),
+      elPed=document.getElementById('rPed'),elPedAvg=document.getElementById('rPedAvg'),
+      elM=document.getElementById('rMonths'),elM2=document.getElementById('rMonths2');
+const thead=document.getElementById('thead'),tbody=document.getElementById('tbody');
+
+const sumRange=(arr)=>{let s=0;for(let i=from;i<=to;i++)s+=arr[i];return s;};
+const rowFat=r=>sumRange(r.fat), rowPed=r=>sumRange(r.ped);
+
+function flash(){const r=document.getElementById('results');r.querySelectorAll('.res').forEach(x=>{x.classList.remove('flash');void x.offsetWidth;x.classList.add('flash');});}
+
+function update(){
+  const n=to-from+1;
+  const f=fmt(MONTHS[from]),t=fmt(MONTHS[to]);
+  document.getElementById('rangeTag').textContent = from===to? f.full : `${f.full} → ${t.full} · ${n} meses`;
+  const tf=DATA.rows.reduce((s,r)=>s+rowFat(r),0);
+  const tp=DATA.rows.reduce((s,r)=>s+rowPed(r),0);
+  elFat.textContent=BRL(tf); elFatAvg.textContent=BRL(tf/n);
+  elPed.textContent=INT(tp); elPedAvg.textContent=INT(tp/n);
+  elM.textContent=n; elM2.textContent=n;
+  // chart highlight
+  chart.querySelectorAll('.col').forEach(c=>{const i=+c.dataset.i;c.classList.toggle('off',i<from||i>to);});
+  flash();
+  renderTable();
+}
+
+const COLS={
+  fat:[{k:'rank',l:'#'},{k:'disp',l:'Região'},{k:'fat',l:'Faturamento R$'},{k:'fatAvg',l:'Média/mês R$'},{k:'ped',l:'Pedidos',o:1}],
+  ped:[{k:'rank',l:'#'},{k:'disp',l:'Região'},{k:'ped',l:'Pedidos'},{k:'pedAvg',l:'Méd. ped/mês'},{k:'fat',l:'Faturamento R$',o:1}]
+};
+const SORTABLE={fat:1,fatAvg:1,ped:1,pedAvg:1,disp:1};
+
+function renderTable(){
+  const n=to-from+1;
+  thead.innerHTML=COLS[mode].map(c=>{const act=c.k===sortKey?'act':'';const ar=c.k===sortKey?(sortDir<0?'▼':'▲'):'';
+    return `<th class="${c.o?'opt-col':''} ${act}" data-k="${c.k}">${c.l} <span class="ar">${ar}</span></th>`;}).join('');
+  thead.querySelectorAll('th').forEach(th=>{const k=th.dataset.k;if(!SORTABLE[k])return;
+    th.onclick=()=>{if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=k==='disp'?1:-1;}renderTable();};});
+
+  let rows=DATA.rows.map(r=>({r,fat:rowFat(r),ped:rowPed(r)}))
+    .filter(o=>o.r.disp.toLowerCase().includes(q)||o.r.rota.toLowerCase().includes(q));
+  rows.forEach(o=>{o.fatAvg=o.fat/n;o.pedAvg=o.ped/n;o.disp=o.r.disp;});
+  rows.sort((a,b)=>{if(sortKey==='disp')return a.disp<b.disp?-sortDir:a.disp>b.disp?sortDir:0;return (a[sortKey]-b[sortKey])*sortDir;});
+
+  if(!rows.length){tbody.innerHTML=`<tr><td colspan="5"><div class="empty">Nenhuma região encontrada.</div></td></tr>`;return;}
+  const span=COLS[mode].length;
+  tbody.innerHTML=rows.map((o,i)=>{
+    let tds;
+    if(mode==='fat')tds=`<td><span class="rank">${i+1}</span></td>
+      <td><span class="rname">${o.disp}<span class="sp">• SP</span></span></td>
+      <td class="v-money v-strong">R$ ${BRL(o.fat)}</td>
+      <td class="v-money v-mut">R$ ${BRL(o.fatAvg)}</td>
+      <td class="opt-col v-money">${INT(o.ped)}</td>`;
+    else tds=`<td><span class="rank">${i+1}</span></td>
+      <td><span class="rname">${o.disp}<span class="sp">• SP</span></span></td>
+      <td class="v-money v-strong">${INT(o.ped)}</td>
+      <td class="v-money v-mut">${INT(o.pedAvg)}</td>
+      <td class="opt-col v-money">R$ ${BRL(o.fat)}</td>`;
+    return `<tr class="main">${tds}</tr>`+detail(o.r,span);
+  }).join('');
+  tbody.querySelectorAll('tr.main').forEach(tr=>tr.onclick=()=>tr.classList.toggle('open'));
+}
+
+function detail(r,span){
+  const cells=MONTHS.map((s,i)=>{const f=fmt(s);const out=(i<from||i>to)?'out':'';
+    return `<div class="dcell ${out}"><div class="dm">${f.full}</div><div class="dv">R$ ${BRL(r.fat[i])}</div><div class="dp">${INT(r.ped[i])} ped</div></div>`;}).join('');
+  return `<tr class="detail"><td colspan="${span}"><div class="detail-inner"><div class="dgrid">${cells}</div></div></td></tr>`;
+}
+
+document.getElementById('toggle').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('#toggle button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  mode=b.dataset.m;sortKey=mode==='fat'?'fat':'ped';sortDir=-1;
+  document.getElementById('tblTitle').textContent=mode==='fat'?'Por região no período · faturamento':'Por região no período · pedidos';
+  renderTable();});
+document.getElementById('search').addEventListener('input',e=>{q=e.target.value.toLowerCase().trim();renderTable();});
+
+setRange(0,NM-1,'all');
+</script>
+</body>
+</html>
