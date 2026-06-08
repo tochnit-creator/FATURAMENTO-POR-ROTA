@@ -1588,7 +1588,7 @@ function popReps(key, sel){
   });
   const reps=Object.values(byRep).sort((a,b)=>b.value-a.value);
   if(!reps.length) return '';
-  const rows=reps.map(r=>`<div class="pop-rep"><span class="prn">${r.rep}</span><span class="prv">${NUM.format(r.orders)} ped · R$ ${fmtCompact(r.value)}</span></div>`).join('');
+  const rows=reps.map(r=>`<div class="pop-rep"><span class="prn">${r.rep}</span><span class="prv">${NUM.format(r.orders)} ped · R$ ${BRL2.format(r.value)}</span></div>`).join('');
   return `<div class="pop-reps">
     <div class="pop-reps-h" onclick="this.parentElement.classList.toggle('open')">
       <span>Representantes (${reps.length})</span><span class="prc">▾</span></div>
