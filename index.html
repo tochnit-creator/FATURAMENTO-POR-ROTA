@@ -245,6 +245,16 @@ tbody tr:hover{background:var(--gold-dim)}
 .leaflet-popup-content-wrapper{background:var(--surface);color:var(--text);border-radius:13px;border:1px solid var(--line2);box-shadow:var(--shadow)}
 .leaflet-popup-tip{background:var(--surface)}
 .leaflet-popup-content{margin:14px 16px;font-family:'Manrope'}
+.pop-reps{margin-top:9px;border-top:1px solid var(--line);padding-top:7px}
+.pop-reps-h{display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px;font-weight:700;color:var(--teal);user-select:none}
+.pop-reps-h .prc{transition:.2s}
+.pop-reps.open .pop-reps-h .prc{transform:rotate(180deg)}
+.pop-reps-b{display:none;margin-top:7px;max-height:160px;overflow-y:auto}
+.pop-reps.open .pop-reps-b{display:block}
+.pop-rep{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:12px;border-top:1px solid var(--line)}
+.pop-rep:first-child{border-top:none}
+.pop-rep .prn{color:var(--text);font-weight:600}
+.pop-rep .prv{color:var(--muted);white-space:nowrap}
 .pop-city{font-family:'Fraunces';font-size:17px;margin-bottom:8px;color:var(--gold)}
 .pop-row{display:flex;justify-content:space-between;gap:24px;font-size:13px;padding:3px 0}
 .pop-row .pl{color:var(--muted)} .pop-row .pv{font-weight:700}
@@ -1569,6 +1579,21 @@ function updateLabelDensity(){
   const z = map.getZoom();
   labelPaneEl.classList.toggle('labels-hidden', z < 8.5); // mostra nomes das demais cidades ao aproximar
 }
+function popReps(key, sel){
+  const ids=(sel||selMonths()).map(m=>m.id).filter(id=>DATA.citycli&&DATA.citycli[id]);
+  const byRep={};
+  ids.forEach(id=>{
+    const arr=(DATA.citycli[id]&&DATA.citycli[id][key])?DATA.citycli[id][key]:[];
+    arr.forEach(c=>{ const r=byRep[c.rep]=byRep[c.rep]||{rep:c.rep,value:0,orders:0}; r.value+=c.value; r.orders+=c.orders; });
+  });
+  const reps=Object.values(byRep).sort((a,b)=>b.value-a.value);
+  if(!reps.length) return '';
+  const rows=reps.map(r=>`<div class="pop-rep"><span class="prn">${r.rep}</span><span class="prv">${NUM.format(r.orders)} ped · R$ ${fmtCompact(r.value)}</span></div>`).join('');
+  return `<div class="pop-reps">
+    <div class="pop-reps-h" onclick="this.parentElement.classList.toggle('open')">
+      <span>Representantes (${reps.length})</span><span class="prc">▾</span></div>
+    <div class="pop-reps-b">${rows}</div></div>`;
+}
 function renderMap(){
   if(!map){ initMap(); }
   layer.clearLayers();
@@ -1584,10 +1609,12 @@ function renderMap(){
       fillColor:'#e6b95f',fillOpacity:.82});
     const label = metric==='value'? fmtCompact(c.value) : NUM.format(c.orders);
     cm.bindTooltip(label,{permanent:true,direction:'center',className:'bubble-label'});
+    const repsHtml = popReps(c.key, sel);
     cm.bindPopup(`<div class="pop-city">${c.name}</div>
       <div class="pop-row"><span class="pl">Faturamento</span><span class="pv" style="color:#b8893a">R$ ${BRL2.format(c.value)}</span></div>
       <div class="pop-row"><span class="pl">Pedidos</span><span class="pv" style="color:#2f9c8d">${NUM.format(c.orders)}</span></div>
-      <div class="pop-row"><span class="pl">Ticket médio</span><span class="pv">R$ ${BRL2.format(ticket)}</span></div>`);
+      <div class="pop-row"><span class="pl">Ticket médio</span><span class="pv">R$ ${BRL2.format(ticket)}</span></div>
+      ${repsHtml}`, {minWidth:230, maxHeight:320});
     cm.addTo(layer);
     // rótulo do nome da cidade (venda) em branco, abaixo da bolha
     const nameM=L.circleMarker([lat,lng],{radius:0,opacity:0,fillOpacity:0,interactive:false});
