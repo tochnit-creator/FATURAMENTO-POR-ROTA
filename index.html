@@ -255,6 +255,27 @@ tbody tr:hover{background:var(--gold-dim)}
 .pop-rep:first-child{border-top:none}
 .pop-rep .prn{color:var(--text);font-weight:600}
 .pop-rep .prv{color:var(--muted);white-space:nowrap}
+
+/* Aba Executiva */
+.exec-intro{background:var(--surface2);border:1px solid var(--line);border-left:3px solid var(--gold-2);border-radius:13px;padding:16px 18px;margin-bottom:20px}
+.exec-intro .ei-t{font-family:'Fraunces';font-size:14px;color:var(--gold);margin-bottom:9px}
+.exec-intro p{font-size:13.5px;line-height:1.6;color:var(--text);margin:0 0 8px}
+.exec-intro p:last-child{margin-bottom:0}
+.exec-intro b{color:var(--gold)} .exec-intro .neg{color:var(--rose)}
+.exec-card{border:1px solid var(--line);border-radius:13px;background:var(--surface2);padding:15px 16px;margin-bottom:10px;border-left-width:3px}
+.exec-card.red{border-left-color:var(--rose)} .exec-card.amber{border-left-color:#d9a441} .exec-card.green{border-left-color:var(--green)}
+.exec-card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.exec-name{font-family:'Fraunces';font-size:16px;color:var(--text)}
+.exec-card p{font-size:13.5px;line-height:1.62;color:var(--text);margin:0}
+.exec-card p b{color:var(--gold)} .exec-card .neg{color:var(--rose)} .exec-card .pos{color:var(--green)}
+.exec-act{display:block;margin-top:9px;color:var(--teal);font-weight:600}
+.exec-mini{margin-top:10px;padding-top:9px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted2)}
+.exec-tag{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.exec-tag.red{background:rgba(224,139,122,.16);color:var(--rose)}
+.exec-tag.amber{background:rgba(217,164,65,.16);color:#e6b95f}
+.exec-tag.green{background:rgba(127,201,154,.16);color:var(--green)}
+.exec-ok{border:1px solid rgba(127,201,154,.4);background:rgba(127,201,154,.08);border-radius:12px;padding:16px;font-size:14px;color:var(--text)}
+.exec-minor{margin-top:6px;font-size:12.5px;color:var(--muted2);font-style:italic;padding:4px 2px}
 .pop-city{font-family:'Fraunces';font-size:17px;margin-bottom:8px;color:var(--gold)}
 .pop-row{display:flex;justify-content:space-between;gap:24px;font-size:13px;padding:3px 0}
 .pop-row .pl{color:var(--muted)} .pop-row .pv{font-weight:700}
@@ -506,11 +527,21 @@ tbody tr:hover{background:var(--gold-dim)}
 
   <div class="tabs">
     <button class="tab on" data-tab="overview">Visão Geral</button>
+    <button class="tab" data-tab="exec">Executiva</button>
     <button class="tab" data-tab="cities">Cidades</button>
     <button class="tab" data-tab="route">Comparar rota</button>
     <button class="tab" data-tab="reps">Representantes</button>
     <button class="tab" data-tab="citydetail" style="display:none">Cidade</button>
     <button class="tab" data-tab="map">Mapa</button>
+  </div>
+
+  <!-- EXECUTIVA -->
+  <div class="panel" id="tab-exec">
+    <div class="section">
+      <div class="sec-head"><h3>Visão executiva</h3></div>
+      <div class="desc">Leitura automática do período: como vai a equipe no geral e quais representantes merecem um papo — com o motivo de cada um. Acompanha o filtro de meses do topo.</div>
+      <div id="execBody"></div>
+    </div>
   </div>
 
   <!-- OVERVIEW -->
@@ -1027,7 +1058,143 @@ function repSuggestion(rep, ctx){
     `</div>`;
 }
 
-/* ============ Simulador de Frete ============ */
+/* ============ Aba Executiva ============ */
+function _median(arr){ if(!arr.length) return 0; const a=arr.slice().sort((x,y)=>x-y); const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; }
+function storesByRep(ids){
+  const m={};
+  ids.forEach(id=>{
+    const cm=DATA.citycli&&DATA.citycli[id]; if(!cm) return;
+    Object.keys(cm).forEach(ck=>cm[ck].forEach(c=>{
+      const rm=m[c.rep]=m[c.rep]||{};
+      const s=rm[c.name]=rm[c.name]||{value:0,orders:0,city:ck};
+      s.value+=c.value; s.orders+=c.orders;
+    }));
+  });
+  return m;
+}
+function execData(){
+  const r=repsForPeriod(); if(!r) return null;
+  const cli_ids=STATE.selected.filter(id=>DATA.citycli&&DATA.citycli[id]);
+  const sbr=storesByRep(cli_ids);
+  const nM=r.nMonths||1;
+  const medOrdM=_median(r.reps.filter(x=>x.orders>0).map(x=>x.orders/nM));
+  const medTotal=_median(r.reps.map(x=>x.total));
+  const compTotal=r.reps.reduce((a,x)=>a+x.total,0);
+
+  const reps=r.reps.map(rep=>{
+    const stores=sbr[rep.name]||{};
+    const storeArr=Object.entries(stores).map(([n,v])=>({name:n,value:v.value,orders:v.orders,city:cityDisplayName(v.city)})).sort((a,b)=>b.value-a.value);
+    const nStores=storeArr.length;
+    const repStoreTotal=storeArr.reduce((a,s)=>a+s.value,0);
+    const topStore=storeArr[0]||null;
+    const topStoreShare=(topStore&&repStoreTotal)?topStore.value/repStoreTotal*100:0;
+    const cities=rep.cities.filter(c=>c.key!=='__SEM_CIDADE__'&&c.value>0).sort((a,b)=>b.value-a.value);
+    const topCity=cities[0]||null;
+    const topCityShare=(topCity&&rep.total)?topCity.value/rep.total*100:0;
+    const ser=r.monthly[rep.name]||[];
+    const act=ser.filter(s=>s.total>0);
+    let trendPct=null;
+    if(act.length>=2){ const f=act[0],l=act[act.length-1]; trendPct=f.total?(l.total-f.total)/f.total*100:0; }
+    const avgM=rep.total/nM;
+    const lowMonths=ser.filter(s=>s.total>0 && s.total<avgM*0.5).map(s=>s.label);
+    const zeroMonths=(nM>1)?ser.filter(s=>s.total===0).map(s=>s.label):[];
+    const ordPerMonth=rep.orders/nM;
+    const semc=rep.cities.find(c=>c.key==='__SEM_CIDADE__');
+
+    // flags + score (só sinais realmente relevantes entram como "para conversar")
+    let score=0; const issues=[];
+    const big = nStores<=2 ? 'few_stores' : (topStoreShare>=50 ? 'conc_store' : null);
+    if(big==='few_stores' && rep.total>0){ score+=2; issues.push({t:'few_stores',w:2}); }
+    else if(big==='conc_store'){ score+=2; issues.push({t:'conc_store',w:2}); }
+    else if(topStoreShare>=35 && topStore){ score+=1; issues.push({t:'conc_store_mid',w:1}); }
+    if(topCityShare>=70 && cities.length>1){ score+=2; issues.push({t:'conc_city',w:2}); }
+    if(trendPct!==null && trendPct<=-15){ score+=3; issues.push({t:'declin',w:3}); }
+    if(zeroMonths.length){ score+=2; issues.push({t:'zero',w:2}); }
+    if(medOrdM>0 && ordPerMonth>0 && ordPerMonth<medOrdM*0.5 && rep.total>0){ score+=1; issues.push({t:'few_ord',w:1}); }
+    if(semc && semc.clients>0){ score+=1; issues.push({t:'semc',w:1}); }
+    const hasBig = issues.some(i=>i.w>=2);
+    const significant = rep.total>=medTotal;
+
+    return {name:rep.name, total:rep.total, orders:rep.orders, rank:rep.rank, nStores, topStore, topStoreShare,
+      topCity, topCityShare, trendPct, lowMonths, zeroMonths, ordPerMonth, semc, score, issues, cities, hasBig, significant};
+  });
+
+  return {reps, labels:r.labels, nM, compTotal, unmatched:r.unmatched, medOrdM};
+}
+
+function execRepParagraph(a){
+  const first=a.name.split(' ')[0];
+  const S=[]; // frases
+  // abertura
+  S.push(`<b>${a.name}</b> (rank #${a.rank}) atende <b>${NUM.format(a.nStores)} loja${a.nStores!==1?'s':''}</b> e faturou R$ ${BRL2.format(a.total)} no período.`);
+  a.issues.forEach(it=>{
+    if(it.t==='declin') S.push(`<span class="neg">Vem caindo:</span> recuou ${Math.abs(a.trendPct).toFixed(0)}% do começo ao fim do período.`);
+    if(it.t==='conc_store') S.push(`O faturamento se concentra muito na loja <b>${a.topStore.name}</b> (${a.topStoreShare.toFixed(0)}% de tudo que ele vende)${a.topStore.city?` em ${a.topStore.city}`:''} — se essa loja oscilar, o mês dele desaba.`);
+    if(it.t==='conc_store_mid') S.push(`A maior parte vem da loja <b>${a.topStore.name}</b> (${a.topStoreShare.toFixed(0)}%)${a.topStore.city?` em ${a.topStore.city}`:''}.`);
+    if(it.t==='conc_city') S.push(`Quase tudo sai de uma praça só: <b>${a.topCity.name}</b> (${a.topCityShare.toFixed(0)}% do faturamento).`);
+    if(it.t==='zero') S.push(`<span class="neg">Ficou sem vender</span> em ${a.zeroMonths.join(', ')}.`);
+    if(it.t==='few_ord') S.push(`Faz poucos pedidos por mês (${a.ordPerMonth.toFixed(0)}/mês, abaixo da média da equipe)${a.lowMonths.length?` — meses mais fracos: ${a.lowMonths.join(', ')}`:''}.`);
+    if(it.t==='few_stores') S.push(`Depende de ${a.nStores===1?'uma única loja':'pouquíssimas lojas ('+a.nStores+')'}${a.topStore?` — <b>${a.topStore.name}</b>${a.topStore.city?` em ${a.topStore.city}`:''}`:''}; risco alto se esse cliente parar de comprar.`);
+    if(it.t==='semc') S.push(`Tem ${NUM.format(a.semc.clients)} cliente(s) <span class="neg">sem cadastro</span> na base.`);
+  });
+  // conselho
+  let act='';
+  if(a.score>=3) act=`<span class="exec-act">💬 Vale bater um papo com ${first} para entender o que está acontecendo e ajudar a destravar.</span>`;
+  else if(a.score>=1) act=`<span class="exec-act">👀 Acompanhar ${first} de perto nos próximos meses.</span>`;
+  return S.join(' ')+' '+act;
+}
+
+function renderExec(){
+  const box=document.getElementById('execBody');
+  const d=execData();
+  if(!d){ box.innerHTML='<div class="muted-row" style="padding:40px">Sem dados de representante no período selecionado.</div>'; return; }
+
+  // resumo empresa
+  const agg=aggregate(selMonths());
+  const topCity=agg.slice().sort((a,b)=>b.value-a.value)[0];
+  const uo=d.unmatched.reduce((a,u)=>a+u.orders,0), uv=d.unmatched.reduce((a,u)=>a+u.value,0);
+  // greenfield (cidades com venda e mais lojas sem cliente)
+  const green=[];
+  agg.forEach(c=>{ const est=estStores(c.key); const cli=(DATA.clients&&DATA.clients[c.key])||0; if(est){ const g=est-cli; if(g>=10&&c.value>0) green.push({name:c.name,g,cli,est,value:c.value}); } });
+  green.sort((a,b)=>b.value-a.value);
+
+  const attAll=d.reps.filter(r=>r.hasBig && r.significant).sort((a,b)=>b.score-a.score||b.total-a.total);
+  const attention=attAll.slice(0,15);
+  const moreAtt=attAll.length-attention.length;
+  const minor=d.reps.filter(r=>r.score>0 && !(r.hasBig&&r.significant)).length;
+  const positives=d.reps.filter(r=>r.score===0 && r.trendPct!==null && r.trendPct>=15).sort((a,b)=>b.total-a.total).slice(0,4);
+
+  let html=``;
+
+  html+=`<div class="sec-head" style="margin-top:8px"><h3>Representantes para conversar (${attAll.length})</h3></div>`;
+  if(attention.length){
+    html+=attention.map(a=>{
+      const tag = a.score>=4?'<span class="exec-tag red">Atenção</span>':'<span class="exec-tag amber">Observar</span>';
+      return `<div class="exec-card ${a.score>=4?'red':'amber'}">
+        <div class="exec-card-h"><span class="exec-name">${a.name}</span>${tag}</div>
+        <p>${execRepParagraph(a)}</p>
+        <div class="exec-mini">${NUM.format(a.nStores)} lojas · ${NUM.format(a.orders)} pedidos · R$ ${BRL2.format(a.total)}${a.topStore?` · maior loja: ${a.topStore.name} (${a.topStoreShare.toFixed(0)}%)`:''}</div>
+      </div>`;
+    }).join('');
+    if(moreAtt>0) html+=`<div class="exec-minor">+ ${moreAtt} outros representantes relevantes com sinais — veja o detalhe na aba Representantes.</div>`;
+    if(minor) html+=`<div class="exec-minor">${NUM.format(minor)} representantes menores com pontos leves (volume baixo, cadastro pendente). Sem urgência.</div>`;
+  } else {
+    html+=`<div class="exec-ok">✅ Nenhum representante com sinal de alerta no período. Carteira saudável.</div>`;
+  }
+
+  if(positives.length){
+    html+=`<div class="sec-head" style="margin-top:22px"><h3>Destaques positivos</h3></div>`;
+    html+=positives.map(a=>`<div class="exec-card green">
+      <div class="exec-card-h"><span class="exec-name">${a.name}</span><span class="exec-tag green">Em alta</span></div>
+      <p><b>${a.name}</b> cresceu <span class="pos">${a.trendPct.toFixed(0)}%</span> no período, atendendo ${NUM.format(a.nStores)} lojas (R$ ${BRL2.format(a.total)}). Bom momento — vale reconhecer e pedir para mapear cidades vizinhas.</p>
+    </div>`).join('');
+  }
+
+  html+=`<div class="mkt-note" style="margin-top:16px">Leitura automática dos dados do período (faturamento, pedidos, lojas atendidas e concentração). "Lojas" = clientes com cadastro na base; o potencial de novas lojas é estimado pelo porte da cidade.</div>`;
+  box.innerHTML=html;
+}
+
+/* ============ Aba Executiva end ============ */
 function freteNorm(s){
   s=(s||'').toString();
   s=s.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
@@ -1624,7 +1791,7 @@ function renderMap(){
 }
 
 /* ============ Tabs + init ============ */
-function refresh(){ renderChips(); renderOverview(); renderCities(); renderRoutePicker(); renderRouteResult(); renderReps(); if(document.getElementById('tab-map').classList.contains('on')) renderMap(); }
+function refresh(){ renderChips(); renderOverview(); renderExec(); renderCities(); renderRoutePicker(); renderRouteResult(); renderReps(); if(document.getElementById('tab-map').classList.contains('on')) renderMap(); }
 
 function switchTab(name){
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
